@@ -54,7 +54,7 @@ class Memory(Base):
         default="personal",
     )
     content = Column(Text, nullable=False)
-    embedding = Column(String(1024), nullable=True)  # pgvector stored as text in basic setup
+    embedding = Column(Text, nullable=True)  # JSON array string from embedding model
     provenance = Column(JSON, nullable=True)  # {session_id, tool, timestamp, git_branch, git_repo}
     status = Column(
         Enum(

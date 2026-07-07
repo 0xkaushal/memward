@@ -28,9 +28,12 @@ class Settings(BaseSettings):
         os.getenv("PROCESSOR_TIMEOUT_SECONDS", "3.0")
     )
 
-    # LLM provider configuration (provider-agnostic)
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
+    # LLM provider configuration (OpenRouter or any OpenAI-compatible endpoint)
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openrouter")
     LLM_API_KEY: Optional[str] = os.getenv("LLM_API_KEY", None)
+    LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
+    LLM_CHAT_MODEL: str = os.getenv("LLM_CHAT_MODEL", "openai/gpt-4o-mini")
+    LLM_EMBEDDING_MODEL: str = os.getenv("LLM_EMBEDDING_MODEL", "openai/text-embedding-3-small")
 
     # Backward compatibility with older env key name.
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY", None)
