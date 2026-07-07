@@ -1,0 +1,36 @@
+import os
+from typing import Optional
+
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Application configuration loaded from environment variables."""
+
+    # Supabase
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
+    SUPABASE_DB_URL: Optional[str] = os.getenv("SUPABASE_DB_URL", None)
+
+    # Workspace (single workspace for v1)
+    WORKSPACE_ID: str = os.getenv("WORKSPACE_ID", "default-workspace")
+
+    # S3 (for raw session archival)
+    AWS_S3_BUCKET: Optional[str] = os.getenv("AWS_S3_BUCKET", None)
+    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
+
+    # SQS (for async processing)
+    AWS_SQS_QUEUE_URL: Optional[str] = os.getenv("AWS_SQS_QUEUE_URL", None)
+
+    # Anthropic (for embeddings and extraction)
+    ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY", None)
+
+    # App
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+
+settings = Settings()
