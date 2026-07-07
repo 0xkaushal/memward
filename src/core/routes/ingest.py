@@ -58,7 +58,7 @@ async def ingest_memory(
     4. Return immediately with 202 Accepted
 
     Processing Lambda will:
-    - Call Anthropic API to extract facts + assign category
+    - Call the configured LLM provider API to extract facts + assign category
     - Write memories row with status=pending_review
     """
     workspace_id = payload.workspace_id or settings.WORKSPACE_ID

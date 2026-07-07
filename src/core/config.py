@@ -22,7 +22,11 @@ class Settings(BaseSettings):
     # SQS (for async processing)
     AWS_SQS_QUEUE_URL: Optional[str] = os.getenv("AWS_SQS_QUEUE_URL", None)
 
-    # Anthropic (for embeddings and extraction)
+    # LLM provider configuration (provider-agnostic)
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
+    LLM_API_KEY: Optional[str] = os.getenv("LLM_API_KEY", None)
+
+    # Backward compatibility with older env key name.
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY", None)
 
     # App
@@ -34,3 +38,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_llm_api_key() -> Optional[str]:
+    """Resolve the configured LLM API key with backward compatibility."""
+    return settings.LLM_API_KEY or settings.ANTHROPIC_API_KEY
