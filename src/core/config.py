@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     # SQS (for async processing)
     AWS_SQS_QUEUE_URL: Optional[str] = os.getenv("AWS_SQS_QUEUE_URL", None)
 
+    # Processor API (POC)
+    PROCESSOR_API_URL: str = os.getenv("PROCESSOR_API_URL", "http://127.0.0.1:8010")
+    PROCESSOR_TIMEOUT_SECONDS: float = float(
+        os.getenv("PROCESSOR_TIMEOUT_SECONDS", "3.0")
+    )
+
     # LLM provider configuration (provider-agnostic)
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
     LLM_API_KEY: Optional[str] = os.getenv("LLM_API_KEY", None)

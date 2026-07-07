@@ -1,5 +1,6 @@
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -42,6 +43,9 @@ class IngestResponse(BaseModel):
     session_id: str = Field(..., description="UUID of the raw_sessions row")
     workspace_id: str = Field(..., description="Workspace that owns this session")
     source: str = Field(..., description="Source this came from")
+    processor_dispatch: str = Field(
+        ..., description="Best-effort processor dispatch status"
+    )
 
 
 @router.post("/ingest", status_code=202, response_model=IngestResponse)
@@ -82,19 +86,32 @@ async def ingest_memory(
     db.commit()
     db.refresh(raw_session)
 
-    # TODO: Queue to SQS for async processing
-    # sqs_client.send_message(
-    #     QueueUrl=settings.AWS_SQS_QUEUE_URL,
-    #     MessageBody=json.dumps({
-    #         "raw_session_id": str(raw_session.id),
-    #         "workspace_id": workspace_id,
-    #         "source": payload.source,
-    #     }),
-    # )
+    processor_dispatch = "skipped"
+
+    # POC: call processor API over HTTP. This is best-effort and non-blocking
+    # for ingestion success (ingest still returns 202 when raw session is saved).
+    process_payload = {
+        "raw_session_id": str(raw_session.id),
+        "workspace_id": workspace_id,
+        "source": payload.source,
+        "content": payload.content,
+        "provenance": payload.provenance,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=settings.PROCESSOR_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                f"{settings.PROCESSOR_API_URL}/process-memory",
+                json=process_payload,
+            )
+            processor_dispatch = "accepted" if resp.status_code == 202 else "failed"
+    except Exception:
+        processor_dispatch = "failed"
 
     return IngestResponse(
         status="accepted",
         session_id=str(raw_session.id),
         workspace_id=workspace_id,
         source=payload.source,
+        processor_dispatch=processor_dispatch,
     )
