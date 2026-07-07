@@ -60,13 +60,11 @@ Copilot ──────┼──(MCP tool calls: save_memory / search_memory)
                      (same FastAPI app)          (same FastAPI app,        (S3 + CloudFront)
                               │                    reads Postgres)
                               ▼
-                        SQS Queue
-                              │
-                              ▼
-                   Processing Lambda (async,
-                   plain function, not FastAPI)
-                   - calls Anthropic API to
-                     extract/categorize
+                   Processor FastAPI app
+                   (v1: direct HTTP call;
+                    v2: SQS → Lambda)
+                   - embed + categorize
+                   - write pending_review
                               │
                               ▼
                    Supabase Postgres + pgvector
@@ -78,7 +76,7 @@ Copilot ──────┼──(MCP tool calls: save_memory / search_memory)
 | Component | Tech choice | Why |
 |---|---|---|
 | MCP server + ingestion API (`save_memory` / `search_memory` / `POST /ingest`) | **Single FastAPI app**, run locally via `uvicorn`, deployed to Lambda via **Mangum** (`handler = Mangum(app)`), fronted by API Gateway (HTTP API) | One codebase for local dev and production. `uvicorn --reload` locally gives instant feedback + free auto-generated docs at `/docs` for manually testing tool calls before wiring up Claude Code. Same app, wrapped with Mangum, becomes the Lambda handler unchanged. Stateless by construction either way — no sticky-session bugs. |
-| Async processing (LLM extraction + categorization) | SQS queue + Lambda worker (plain function, not FastAPI — this one's just a queue consumer) | Decouples "session ended" from the LLM call; retries come free via SQS redrive policy |
+| Processing (LLM extraction + categorization) | **v1:** Second FastAPI app (`processor`) called directly over HTTP from `/ingest` (best-effort, fire-and-forget with a short timeout). **v2 upgrade path:** swap the HTTP call for an SQS message drop + Lambda consumer — the processor FastAPI app can be reused as the handler body unchanged. | v1 keeps the deployment simple and removes the AWS-credential dependency during development. The upgrade seam (a single HTTP call in `ingest.py`) is small and isolated. |
 | Storage | **Supabase** (Postgres + pgvector + Auth) | Fast to start; real Postgres underneath, portable to self-hosted RDS later (see portability notes) |
 | Raw session archive (optional) | S3 | Cheap insurance — lets you re-run extraction later with a better prompt without needing the original session again |
 | Secrets (Anthropic API key, DB creds) | Secrets Manager (prod) / `.env` file (local) | Standard pattern already used elsewhere in this stack |
@@ -112,10 +110,14 @@ Deliberately just these two tables for v1. No dedupe/contradiction-resolution en
 ### Flows
 
 **Ingestion → storage:** agent/tool calls `save_memory` (MCP) or
-`POST /ingest` (webhook) → FastAPI app writes raw payload to S3, drops a
-message on SQS, returns immediately → Processing Lambda (async) calls
-the Anthropic API to extract facts + assign category → writes a
-`memories` row with `status = pending_review`.
+`POST /ingest` (webhook) → FastAPI app writes raw payload to `raw_sessions`, then
+makes a best-effort HTTP POST to the **processor FastAPI app** (`POST /process-memory`)
+and returns 202 immediately. The processor embeds the content, assigns a category,
+and writes a `memories` row with `status = pending_review`.
+
+> **v1 vs v2 note:** The direct HTTP call is intentional for v1 to keep AWS
+> dependencies out of local dev. The upgrade path to SQS + Lambda is a one-seam
+> change in `ingest.py` — the processor logic itself does not need to change.
 
 **Retrieval:** agent calls `search_memory(query)` → FastAPI app embeds the
 query → pgvector similarity search filtered to `status = approved` AND
@@ -338,7 +340,7 @@ work without a rewrite. Preserve them even under time pressure:
 
 **Week 1 — backend, no UI**
 - Days 1–2: Supabase project set up, pgvector enabled, schema created, `.env` wired for local secrets
-- Days 3–4: FastAPI app — `save_memory`, `search_memory`, `/ingest` routes, running locally via `uvicorn --reload`; SQS + Processing Lambda for async extraction (budget extra time here — most moving pieces)
+- Days 3–4: FastAPI app — `save_memory`, `search_memory`, `/ingest` routes, running locally via `uvicorn --reload`; separate **processor FastAPI app** that `/ingest` calls directly over HTTP for v1 (no SQS/Lambda needed locally — SQS is the v2 upgrade path, not a v1 requirement)
 - Day 5: Wrap the same FastAPI app with Mangum, deploy behind API Gateway; build the Claude Code `Stop` hook script (primary capture path) and test end-to-end against the deployed endpoint
 
 **Week 2 — curation UI + second connector**
