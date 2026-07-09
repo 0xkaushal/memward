@@ -1,6 +1,7 @@
 import pathlib
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -12,9 +13,16 @@ from core.routes.ingest import router as ingest_router
 from core.routes.root import router as root_router
 from core.routes.search import router as search_router
 
-_UI_DIR = pathlib.Path(__file__).parent.parent.parent / "ui"
+_UI_DIST = pathlib.Path(__file__).parent.parent.parent / "ui" / "dist"
 
 app = FastAPI(title="memward API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
@@ -29,7 +37,6 @@ app.include_router(search_router)
 app.include_router(curation_router)
 app.include_router(mcp_router)
 
-
-@app.get("/ui", include_in_schema=False)
-async def serve_ui() -> FileResponse:
-    return FileResponse(_UI_DIR / "index.html", media_type="text/html")
+# Serve React build (production). For dev, run `npm run dev` in ui/ instead.
+if _UI_DIST.exists():
+    app.mount("/ui", StaticFiles(directory=_UI_DIST, html=True), name="ui")
