@@ -29,14 +29,17 @@ import json
 import os
 import sys
 import urllib.request
+import urllib.parse
 from pathlib import Path
 
 # ── Config (override via env vars) ──────────────────────────────────────────
 INGEST_URL = os.environ.get("MEMWARD_INGEST_URL", "http://127.0.0.1:8000/ingest")
+SEARCH_URL = os.environ.get("MEMWARD_SEARCH_URL", "http://127.0.0.1:8000/search")
 WORKSPACE_ID = os.environ.get("MEMWARD_WORKSPACE_ID", "default-workspace")
 CHECKPOINT_DIR = Path(os.environ.get("MEMWARD_CHECKPOINT_DIR", Path.home() / ".memward" / "checkpoints"))
 CLAUDE_PROJECTS_DIR = Path(os.environ.get("CLAUDE_PROJECTS_DIR", Path.home() / ".claude" / "projects"))
 TIMEOUT_SECONDS = int(os.environ.get("MEMWARD_INGEST_TIMEOUT", "5"))
+MEMORY_INJECT_LIMIT = int(os.environ.get("MEMWARD_INJECT_LIMIT", "20"))
 
 
 def checkpoint_path(session_id: str) -> Path:
@@ -150,6 +153,44 @@ def reconcile_missed_sessions(current_session_id: str, source_event: str) -> Non
             save_checkpoint(session_id, total_lines)
 
 
+def fetch_and_inject_memories() -> None:
+    """
+    Fetch all approved memories from the memward server and append them
+    to the model's prompt context via Claude Code's hook JSON output.
+
+    Writes {"context": "..."} to stdout — Claude Code injects this into
+    the model's context silently, without showing it as a user message.
+
+    Silently skips if the server is not running — memory is best-effort.
+    """
+    params = urllib.parse.urlencode({
+        "limit": MEMORY_INJECT_LIMIT,
+        "workspace_id": WORKSPACE_ID,
+    })
+    url = f"{SEARCH_URL}?{params}"
+    try:
+        with urllib.request.urlopen(url, timeout=TIMEOUT_SECONDS) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return
+
+    results = data.get("results", [])
+    if not results:
+        return
+
+    lines = ["Approved memories from previous sessions:\n"]
+    for r in results:
+        category = r.get("category", "general")
+        source = r.get("source", "unknown")
+        content = r.get("content", "").strip()
+        if content:
+            lines.append(f"[{category} / {source}] {content}")
+
+    context_text = "\n".join(lines)
+    sys.stdout.write(json.dumps({"context": context_text}))
+    sys.stdout.flush()
+
+
 def main() -> None:
     raw = sys.stdin.read().strip()
     if not raw:
@@ -164,6 +205,7 @@ def main() -> None:
     source_event = event.get("source", "startup")
 
     reconcile_missed_sessions(current_session_id, source_event)
+    fetch_and_inject_memories()
 
 
 if __name__ == "__main__":

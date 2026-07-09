@@ -35,7 +35,7 @@ class SearchResponse(BaseModel):
 
 @router.get("/search", response_model=SearchResponse)
 async def search_memory(
-    query: str = Query(..., min_length=1, description="Search query string"),
+    query: Optional[str] = Query(None, min_length=1, description="Search query string — omit to list all recent approved memories"),
     limit: int = Query(5, ge=1, le=25, description="Max results to return"),
     workspace_id: Optional[str] = Query(
         None, description="Workspace to search in (defaults to config WORKSPACE_ID)"
@@ -51,23 +51,22 @@ async def search_memory(
     3. pgvector similarity search filtered to status=approved AND workspace_id
     4. Return top-N matches
 
+    If query is omitted, returns the most recent approved memories (used by
+    the SessionStart hook to inject all known context at session start).
+
     IMPORTANT: Unreviewed memories (status != approved) never leak into results.
     """
     workspace_id = workspace_id or settings.WORKSPACE_ID
 
     # For v1, simple keyword search on content
     # TODO: Implement embedding + pgvector similarity search
-    matches = (
-        db.query(Memory)
-        .filter(
-            Memory.workspace_id == workspace_id,
-            Memory.status == "approved",
-            Memory.content.ilike(f"%{query}%"),
-        )
-        .order_by(Memory.created_at.desc())
-        .limit(limit)
-        .all()
+    base_q = db.query(Memory).filter(
+        Memory.workspace_id == workspace_id,
+        Memory.status == "approved",
     )
+    if query:
+        base_q = base_q.filter(Memory.content.ilike(f"%{query}%"))
+    matches = base_q.order_by(Memory.created_at.desc()).limit(limit).all()
 
     results = [
         SearchResult(
@@ -82,7 +81,7 @@ async def search_memory(
     ]
 
     return SearchResponse(
-        query=query,
+        query=query or "",
         limit=limit,
         workspace_id=workspace_id,
         results=results,
