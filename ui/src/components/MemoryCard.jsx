@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { api } from '../api'
-import { StatusBadge, Badge } from './Badge'
+
+const STATUS_DOT   = { pending_review: 'dot-pending', approved: 'dot-approved', archived: 'dot-archived' }
+const STATUS_LABEL = { pending_review: 'pending', approved: 'approved', archived: 'archived' }
 
 export function MemoryCard({ memory, onUpdated, onDeleted }) {
   const [editing, setEditing] = useState(false)
@@ -13,61 +15,48 @@ export function MemoryCard({ memory, onUpdated, onDeleted }) {
       const updated = await api.patch(memory.id, body)
       onUpdated(updated)
       setEditing(false)
-    } finally {
-      setBusy(false)
-    }
+    } finally { setBusy(false) }
   }
 
   async function remove() {
-    if (!confirm(`Delete this memory?\n\n"${memory.content.slice(0, 120)}"`)) return
+    if (!confirm('Delete this memory?')) return
     setBusy(true)
-    try {
-      await api.remove(memory.id)
-      onDeleted(memory.id)
-    } finally {
-      setBusy(false)
-    }
+    try { await api.remove(memory.id); onDeleted(memory.id) }
+    finally { setBusy(false) }
   }
 
-  const date = new Date(memory.created_at).toLocaleString()
+  const date = new Date(memory.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
   return (
     <div className="card">
-      <div className="card-top">
-        <StatusBadge status={memory.status} />
-        <Badge className="badge-source">{memory.source.replace(/_/g, ' ')}</Badge>
-        <Badge className="badge-category">{memory.category.replace(/_/g, ' ')}</Badge>
-        <span className="card-date">{date}</span>
+      <div className="card-meta">
+        <span className={`card-dot ${STATUS_DOT[memory.status]}`} />
+        <span>{STATUS_LABEL[memory.status]}</span>
+        <span>·</span>
+        <span>{memory.source.replace(/_/g, ' ')}</span>
+        <span>·</span>
+        <span>{memory.category.replace(/_/g, ' ')}</span>
+        <span style={{ marginLeft: 'auto' }}>{date}</span>
       </div>
 
-      {editing ? (
-        <textarea
-          className="card-edit"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          rows={4}
-        />
-      ) : (
-        <p className="card-content">{memory.content}</p>
-      )}
+      {editing
+        ? <textarea className="card-edit" value={draft} rows={3} onChange={e => setDraft(e.target.value)} />
+        : <p className="card-content">{memory.content}</p>
+      }
 
       <div className="card-actions">
         {editing ? (
           <>
-            <button
-              className="btn btn-save"
-              disabled={busy || !draft.trim()}
-              onClick={() => patch({ content: draft.trim() })}
-            >Save</button>
-            <button className="btn btn-cancel" disabled={busy} onClick={() => { setEditing(false); setDraft(memory.content) }}>Cancel</button>
+            <button className="act act-save" disabled={busy || !draft.trim()} onClick={() => patch({ content: draft.trim() })}>Save</button>
+            <button className="act" disabled={busy} onClick={() => { setEditing(false); setDraft(memory.content) }}>Cancel</button>
           </>
         ) : (
           <>
-            {memory.status !== 'approved'       && <button className="btn btn-approve"  disabled={busy} onClick={() => patch({ status: 'approved' })}>Approve</button>}
-            {memory.status !== 'archived'       && <button className="btn btn-archive"  disabled={busy} onClick={() => patch({ status: 'archived' })}>Archive</button>}
-            {memory.status !== 'pending_review' && <button className="btn btn-pending"  disabled={busy} onClick={() => patch({ status: 'pending_review' })}>Mark pending</button>}
-            <button className="btn btn-edit"   disabled={busy} onClick={() => setEditing(true)}>Edit</button>
-            <button className="btn btn-delete" disabled={busy} onClick={remove}>Delete</button>
+            {memory.status !== 'approved'       && <button className="act act-approve" disabled={busy} onClick={() => patch({ status: 'approved' })}>Approve</button>}
+            {memory.status !== 'archived'       && <button className="act" disabled={busy} onClick={() => patch({ status: 'archived' })}>Archive</button>}
+            {memory.status !== 'pending_review' && <button className="act" disabled={busy} onClick={() => patch({ status: 'pending_review' })}>Pending</button>}
+            <button className="act" disabled={busy} onClick={() => setEditing(true)}>Edit</button>
+            <button className="act act-delete" disabled={busy} onClick={remove}>Delete</button>
           </>
         )}
       </div>
