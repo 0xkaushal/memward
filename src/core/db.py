@@ -1,6 +1,5 @@
 """Database models and connection management."""
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import (
     JSON,
@@ -11,7 +10,6 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base, sessionmaker
 import uuid
 
@@ -20,15 +18,20 @@ from core.config import settings
 Base = declarative_base()
 
 
+def _new_uuid() -> str:
+    """Generate a new UUID as a string (works on Postgres and SQLite)."""
+    return str(uuid.uuid4())
+
+
 class Memory(Base):
     """Extracted memory with human-curated review gate."""
 
     __tablename__ = "memories"
 
     id = Column(
-        UUID(as_uuid=True),
+        String(36),
         primary_key=True,
-        default=uuid.uuid4,
+        default=_new_uuid,
         nullable=False,
     )
     workspace_id = Column(String(255), nullable=False, index=True)
@@ -77,9 +80,9 @@ class RawSession(Base):
     __tablename__ = "raw_sessions"
 
     id = Column(
-        UUID(as_uuid=True),
+        String(36),
         primary_key=True,
-        default=uuid.uuid4,
+        default=_new_uuid,
         nullable=False,
     )
     workspace_id = Column(String(255), nullable=False, index=True)
