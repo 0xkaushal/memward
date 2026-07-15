@@ -154,14 +154,6 @@ export function Sidebar({
   const [creatingCol, setCreatingCol] = useState(false)
   const set = (key, val) => onChange({ ...filters, [key]: val })
 
-  function selectCollection(colId) {
-    onChange({ ...filters, collection_id: colId, status_filter: '', category: '', source: '' })
-  }
-
-  function clearCollection() {
-    onChange({ ...filters, collection_id: '' })
-  }
-
   return (
     <aside className="sidebar">
       {/* Header */}
@@ -191,7 +183,7 @@ export function Sidebar({
             <button
               key={s.value}
               className={`sidebar-item${!filters.collection_id && filters.status_filter === s.value ? ' active' : ''}`}
-              onClick={() => { clearCollection(); set('status_filter', s.value) }}
+              onClick={() => onChange({ ...filters, collection_id: '', status_filter: s.value })}
             >
               <span className={`sidebar-dot ${s.dot}`} />
               {s.label}
@@ -208,7 +200,7 @@ export function Sidebar({
             <button
               key={c.value}
               className={`sidebar-item${!filters.collection_id && filters.category === c.value ? ' active' : ''}`}
-              onClick={() => { clearCollection(); set('category', c.value) }}
+              onClick={() => onChange({ ...filters, collection_id: '', category: c.value })}
             >
               {c.label}
             </button>
@@ -221,7 +213,7 @@ export function Sidebar({
             <button
               key={s.value}
               className={`sidebar-item${!filters.collection_id && filters.source === s.value ? ' active' : ''}`}
-              onClick={() => { clearCollection(); set('source', s.value) }}
+              onClick={() => onChange({ ...filters, collection_id: '', source: s.value })}
             >
               {s.label}
             </button>
@@ -255,7 +247,7 @@ export function Sidebar({
               key={col.id}
               col={col}
               active={filters.collection_id === col.id}
-              onClick={() => selectCollection(col.id)}
+              onClick={() => onChange({ ...filters, collection_id: col.id, status_filter: '', category: '', source: '' })}
               onRename={onRenameCollection}
               onDelete={onDeleteCollection}
             />
