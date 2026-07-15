@@ -21,6 +21,16 @@ function useTheme() {
   return { toggle, isDark }
 }
 
+function SkeletonList() {
+  return (
+    <div className="list">
+      {[100, 80, 120, 90, 110].map((w, i) => (
+        <div key={i} className="skeleton skeleton-card" style={{ height: `${w}px` }} />
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const [memories, setMemories] = useState([])
   const [loading, setLoading]   = useState(false)
@@ -50,7 +60,6 @@ export default function App() {
     [memories, filters.q]
   )
 
-  // counts for sidebar badges — derived from the full unfiltered data when no status filter
   const counts = useMemo(() => {
     const status = { '': memories.length }
     memories.forEach(m => { status[m.status] = (status[m.status] || 0) + 1 })
@@ -59,7 +68,11 @@ export default function App() {
 
   const title = filters.status_filter
     ? filters.status_filter.replace('_', ' ')
-    : filters.category || filters.source || 'all memories'
+    : filters.category
+      ? filters.category.replace(/_/g, ' ')
+      : filters.source
+        ? filters.source.replace(/_/g, ' ')
+        : 'All memories'
 
   return (
     <div className="layout">
@@ -76,19 +89,33 @@ export default function App() {
       <div className="pane">
         <div className="pane-header">
           <span className="pane-title">{title}</span>
-          <span className="pane-count">{visible.length} items</span>
+          {!loading && <span className="pane-count">{visible.length}</span>}
         </div>
 
-        <div className="list">
-          {error && <p className="error-msg">{error}</p>}
-          {!loading && !error && visible.length === 0 && <p className="empty">no memories</p>}
-          {visible.map(m => (
-            <MemoryCard key={m.id} memory={m}
-              onUpdated={u => setMemories(prev => prev.map(x => x.id === u.id ? u : x))}
-              onDeleted={id => setMemories(prev => prev.filter(x => x.id !== id))}
-            />
-          ))}
-        </div>
+        {error && <div className="error-banner">{error}</div>}
+
+        {loading
+          ? <SkeletonList />
+          : !error && visible.length === 0
+            ? (
+              <div className="list">
+                <div className="empty">
+                  <div className="empty-icon">◎</div>
+                  <div>{filters.q ? `No results for "${filters.q}"` : 'No memories yet'}</div>
+                </div>
+              </div>
+            )
+            : (
+              <div className="list">
+                {visible.map(m => (
+                  <MemoryCard key={m.id} memory={m}
+                    onUpdated={u => setMemories(prev => prev.map(x => x.id === u.id ? u : x))}
+                    onDeleted={id => setMemories(prev => prev.filter(x => x.id !== id))}
+                  />
+                ))}
+              </div>
+            )
+        }
       </div>
     </div>
   )
