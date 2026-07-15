@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from core.db import Memory, get_db
+from core.db import Memory, MemoryCollection, get_db
 
 router = APIRouter(prefix="/curation", tags=["curation"])
 
@@ -25,6 +25,7 @@ class MemoryOut(BaseModel):
     category: str
     content: str
     status: str
+    collection_ids: list[str] = []
     provenance: Optional[dict] = None
     created_at: str
     updated_at: str
@@ -73,7 +74,7 @@ async def list_memories(
         total=total,
         offset=offset,
         limit=limit,
-        results=[_to_out(m) for m in rows],
+        results=[_to_out(m, db) for m in rows],
     )
 
 
@@ -103,7 +104,7 @@ async def patch_memory(
 
     db.commit()
     db.refresh(m)
-    return _to_out(m)
+    return _to_out(m, db)
 
 
 @router.delete("/memories/{memory_id}", status_code=204)
@@ -119,7 +120,11 @@ async def delete_memory(
     db.commit()
 
 
-def _to_out(m: Memory) -> MemoryOut:
+def _to_out(m: Memory, db: Session) -> MemoryOut:
+    collection_ids = [
+        str(mc.collection_id)
+        for mc in db.query(MemoryCollection).filter(MemoryCollection.memory_id == m.id).all()
+    ]
     return MemoryOut(
         id=str(m.id),
         workspace_id=m.workspace_id,
@@ -127,6 +132,7 @@ def _to_out(m: Memory) -> MemoryOut:
         category=m.category,
         content=m.content,
         status=m.status,
+        collection_ids=collection_ids,
         provenance=m.provenance,
         created_at=m.created_at.isoformat() if m.created_at else "",
         updated_at=m.updated_at.isoformat() if m.updated_at else "",

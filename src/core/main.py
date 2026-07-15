@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from core.db import init_db
 from core.connectors.copilot import router as mcp_router
+from core.routes.collections import router as collections_router
 from core.routes.curation import router as curation_router
 from core.routes.health import router as health_router
 from core.routes.ingest import router as ingest_router
@@ -35,6 +36,7 @@ app.include_router(health_router)
 app.include_router(ingest_router)
 app.include_router(search_router)
 app.include_router(curation_router)
+app.include_router(collections_router)
 app.include_router(mcp_router)
 
 # Serve React build (production). For dev, run `npm run dev` in ui/ instead.

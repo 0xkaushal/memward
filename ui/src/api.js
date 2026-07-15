@@ -13,7 +13,18 @@ async function req(method, path, body) {
 }
 
 export const api = {
-  list: (params) => req('GET', `/memories?${new URLSearchParams(params)}`),
-  patch: (id, body) => req('PATCH', `/memories/${id}`, body),
-  remove: (id) => req('DELETE', `/memories/${id}`),
+  // Memories
+  list:   (params) => req('GET',    `/memories?${new URLSearchParams(params)}`),
+  patch:  (id, body) => req('PATCH', `/memories/${id}`, body),
+  remove: (id)       => req('DELETE', `/memories/${id}`),
+
+  // Collections
+  collections: {
+    list:   ()                       => req('GET',    '/collections'),
+    create: (name, color)            => req('POST',   '/collections', { name, color }),
+    update: (id, body)               => req('PATCH',  `/collections/${id}`, body),
+    remove: (id)                     => req('DELETE', `/collections/${id}`),
+    addMemory:    (colId, memId)     => req('PUT',    `/collections/${colId}/memories/${memId}`),
+    removeMemory: (colId, memId)     => req('DELETE', `/collections/${colId}/memories/${memId}`),
+  },
 }

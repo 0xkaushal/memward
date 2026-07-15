@@ -6,11 +6,14 @@ from sqlalchemy import (
     Column,
     DateTime,
     Enum,
+    ForeignKey,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
 )
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import uuid
 
 from core.config import settings
@@ -72,6 +75,35 @@ class Memory(Base):
     )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class Collection(Base):
+    """User-created container for grouping memories."""
+
+    __tablename__ = "collections"
+
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=_new_uuid, nullable=False)
+    workspace_id = Column(String(255), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    color = Column(String(32), nullable=True)   # e.g. "#6366f1"
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    memberships = relationship("MemoryCollection", back_populates="collection", cascade="all, delete-orphan")
+
+
+class MemoryCollection(Base):
+    """Join table: many memories ↔ many collections."""
+
+    __tablename__ = "memory_collections"
+    __table_args__ = (UniqueConstraint("memory_id", "collection_id", name="uq_memory_collection"),)
+
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=_new_uuid, nullable=False)
+    memory_id = Column(PG_UUID(as_uuid=False), ForeignKey("memories.id", ondelete="CASCADE"), nullable=False, index=True)
+    collection_id = Column(PG_UUID(as_uuid=False), ForeignKey("collections.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    collection = relationship("Collection", back_populates="memberships")
 
 
 class RawSession(Base):

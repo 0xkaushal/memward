@@ -481,3 +481,290 @@ body {
   height: 90px;
   border: 1px solid var(--border);
 }
+
+/* ── Pane header collection dot ──────────────────────────────────────────── */
+.pane-col-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Collection meta tags on cards ──────────────────────────────────────── */
+.meta-tag-collection {
+  background: color-mix(in srgb, var(--col-color, var(--muted)) 12%, transparent);
+  color: var(--col-color, var(--muted));
+  border: 1px solid color-mix(in srgb, var(--col-color, var(--muted)) 30%, transparent);
+}
+
+/* ── Sidebar collection items ────────────────────────────────────────────── */
+.sidebar-group-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: .6rem;
+}
+
+.sidebar-add-col-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 .1rem;
+  border-radius: 3px;
+  transition: color .1s;
+  font-family: inherit;
+}
+.sidebar-add-col-btn:hover { color: var(--text); }
+
+.sidebar-col-item {
+  padding: 0;
+  position: relative;
+}
+
+.sidebar-col-btn {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: .35rem 1rem .35rem 1rem;
+  font-size: .82rem;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  width: calc(100% - 26px);
+  overflow: hidden;
+}
+
+.sidebar-col-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sidebar-col-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-col-rename {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--text);
+  font-size: .82rem;
+  padding: .1rem .3rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.sidebar-col-more {
+  position: absolute;
+  right: .35rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.sidebar-col-more-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: .85rem;
+  padding: .15rem .25rem;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity .1s, color .1s;
+  line-height: 1;
+  font-family: inherit;
+}
+
+.sidebar-col-item:hover .sidebar-col-more-btn,
+.sidebar-col-item.active .sidebar-col-more-btn { opacity: 1; }
+.sidebar-col-more-btn:hover { color: var(--text); }
+
+.col-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 2px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  z-index: 100;
+  min-width: 110px;
+  overflow: hidden;
+}
+
+.col-menu-item {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: .45rem .75rem;
+  font-size: .78rem;
+  cursor: pointer;
+  color: var(--text-2);
+  font-family: inherit;
+  transition: background .1s, color .1s;
+}
+.col-menu-item:hover { background: var(--surface-2); color: var(--text); }
+.col-menu-danger { color: var(--red); }
+.col-menu-danger:hover { background: var(--red-dim); color: var(--red); }
+
+.sidebar-col-empty {
+  padding: .35rem 1rem;
+  font-size: .78rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── New collection form ──────────────────────────────────────────────────── */
+.new-col-form {
+  padding: .5rem 1rem .6rem;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+.new-col-colors {
+  display: flex;
+  gap: .3rem;
+  flex-wrap: wrap;
+}
+
+.new-col-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform .1s, border-color .1s;
+}
+.new-col-swatch:hover { transform: scale(1.15); }
+.new-col-swatch.selected { border-color: var(--text); }
+
+.new-col-input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: .35rem .55rem;
+  font-size: .8rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .15s;
+}
+.new-col-input:focus { border-color: var(--accent); }
+
+.new-col-actions {
+  display: flex;
+  gap: .4rem;
+}
+
+.new-col-btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: .3rem .7rem;
+  font-size: .78rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: opacity .1s;
+}
+.new-col-btn-primary:disabled { opacity: .4; cursor: default; }
+
+.new-col-btn-cancel {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .3rem .6rem;
+  font-size: .78rem;
+  cursor: pointer;
+  color: var(--text-2);
+  font-family: inherit;
+  transition: background .1s;
+}
+.new-col-btn-cancel:hover { background: var(--surface-2); }
+
+/* ── Collection picker dropdown on cards ────────────────────────────────── */
+.col-picker {
+  position: relative;
+}
+
+.act-collections {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+.act-collections:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.col-picker-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  z-index: 200;
+  min-width: 180px;
+  overflow: hidden;
+}
+
+.col-picker-title {
+  padding: .5rem .75rem .35rem;
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.col-picker-item {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: .45rem .75rem;
+  font-size: .82rem;
+  cursor: pointer;
+  color: var(--text-2);
+  font-family: inherit;
+  transition: background .1s;
+}
+.col-picker-item:hover { background: var(--surface-2); color: var(--text); }
+.col-picker-item-active { color: var(--text); font-weight: 500; }
+
+.col-picker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.col-picker-check {
+  margin-left: auto;
+  font-size: .75rem;
+  color: var(--green);
+}
