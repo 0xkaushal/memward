@@ -1,4 +1,5 @@
 import pathlib
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from core.db import init_db
+from core.mcp_server import mcp
 from core.connectors.copilot import router as mcp_router
 from core.routes.collections import router as collections_router
 from core.routes.curation import router as curation_router
@@ -16,7 +18,14 @@ from core.routes.search import router as search_router
 
 _UI_DIST = pathlib.Path(__file__).parent.parent.parent / "ui" / "dist"
 
-app = FastAPI(title="memward API")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_db()
+    async with mcp.session_manager.run():
+        yield
+
+app = FastAPI(title="memward API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,11 +35,6 @@ app.add_middleware(
 )
 
 
-@app.on_event("startup")
-def startup() -> None:
-    init_db()
-
-
 app.include_router(root_router)
 app.include_router(health_router)
 app.include_router(ingest_router)
@@ -38,6 +42,7 @@ app.include_router(search_router)
 app.include_router(curation_router)
 app.include_router(collections_router)
 app.include_router(mcp_router)
+app.mount("/mcp", mcp.streamable_http_app())
 
 # Serve React build (production). For dev, run `npm run dev` in ui/ instead.
 if _UI_DIST.exists():

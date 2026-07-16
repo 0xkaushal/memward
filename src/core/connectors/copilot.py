@@ -15,8 +15,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from core.config import settings
-from core.db import Memory, RawSession, get_db
+from core.db import get_db
 from core.routes.ingest import IngestRequest, IngestResponse, ingest_memory
 from core.routes.search import SearchResponse, search_memory as _search_memory
 

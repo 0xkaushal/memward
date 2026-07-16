@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from core.config import settings
 from core.db import Memory, get_db
+from core.workspace import resolve_workspace_id
 
 router = APIRouter(tags=["search"])
 
@@ -56,7 +56,7 @@ async def search_memory(
 
     IMPORTANT: Unreviewed memories (status != approved) never leak into results.
     """
-    workspace_id = workspace_id or settings.WORKSPACE_ID
+    workspace_id = resolve_workspace_id(workspace_id)
 
     # For v1, simple keyword search on content
     # TODO: Implement embedding + pgvector similarity search

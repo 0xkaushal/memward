@@ -50,8 +50,8 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def client():
-    """Return a TestClient with the DB dependency overridden."""
+    """Return one process-lifetime TestClient with the DB dependency overridden."""
     with TestClient(app) as c:
         yield c

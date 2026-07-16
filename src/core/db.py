@@ -1,5 +1,5 @@
 """Database models and connection management."""
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON,
@@ -10,9 +10,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Integer,
     create_engine,
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import uuid
 
@@ -73,8 +73,10 @@ class Memory(Base):
         default="pending_review",
         index=True,
     )
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    raw_session_id = Column(String(36), ForeignKey("raw_sessions.id", ondelete="CASCADE"), nullable=True, index=True)
+    candidate_index = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class Collection(Base):
@@ -82,12 +84,12 @@ class Collection(Base):
 
     __tablename__ = "collections"
 
-    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=_new_uuid, nullable=False)
+    id = Column(String(36), primary_key=True, default=_new_uuid, nullable=False)
     workspace_id = Column(String(255), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     color = Column(String(32), nullable=True)   # e.g. "#6366f1"
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     memberships = relationship("MemoryCollection", back_populates="collection", cascade="all, delete-orphan")
 
@@ -98,10 +100,10 @@ class MemoryCollection(Base):
     __tablename__ = "memory_collections"
     __table_args__ = (UniqueConstraint("memory_id", "collection_id", name="uq_memory_collection"),)
 
-    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=_new_uuid, nullable=False)
-    memory_id = Column(PG_UUID(as_uuid=False), ForeignKey("memories.id", ondelete="CASCADE"), nullable=False, index=True)
-    collection_id = Column(PG_UUID(as_uuid=False), ForeignKey("collections.id", ondelete="CASCADE"), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    id = Column(String(36), primary_key=True, default=_new_uuid, nullable=False)
+    memory_id = Column(String(36), ForeignKey("memories.id", ondelete="CASCADE"), nullable=False, index=True)
+    collection_id = Column(String(36), ForeignKey("collections.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     collection = relationship("Collection", back_populates="memberships")
 
@@ -130,7 +132,14 @@ class RawSession(Base):
     )
     s3_key = Column(String(1024), nullable=True)  # Path in S3 bucket
     content = Column(Text, nullable=False)  # Raw payload for local dev
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    provenance = Column(JSON, nullable=True)
+    idempotency_key = Column(String(64), nullable=False, unique=True, index=True)
+    processing_status = Column(String(32), nullable=False, default="pending", index=True)
+    processing_attempts = Column(Integer, nullable=False, default=0)
+    processing_error = Column(Text, nullable=True)
+    processing_started_at = Column(DateTime, nullable=True)
+    processed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 # Database connection setup

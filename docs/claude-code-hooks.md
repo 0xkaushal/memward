@@ -153,7 +153,7 @@ The hook scripts read these environment variables if set. Defaults work for loca
 | `MEMWARD_INGEST_URL` | `http://127.0.0.1:8000/ingest` | Core API ingest endpoint |
 | `MEMWARD_SEARCH_URL` | `http://127.0.0.1:8000/search` | Core API search endpoint |
 | `MEMWARD_WORKSPACE_ID` | `default-workspace` | Workspace to write memories into |
-| `MEMWARD_CHECKPOINT_DIR` | `~/.memward/checkpoints/` | Where per-session checkpoints are stored |
+| `MEMWARD_CHECKPOINT_DIR` | `~/.memward/checkpoints/` | Where per-session checkpoints are stored; checkpoints advance only after durable ingest acceptance |
 | `MEMWARD_INGEST_TIMEOUT` | `5` | Seconds before ingest HTTP call times out |
 | `MEMWARD_INJECT_LIMIT` | `20` | Max approved memories injected at SessionStart |
 

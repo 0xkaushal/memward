@@ -128,7 +128,7 @@ curl 'http://127.0.0.1:8000/search?query=python&limit=5'
 
 ### GitHub Copilot (VS Code agent mode)
 
-`.vscode/mcp.json` is already committed to this repo. VS Code will auto-discover the `save_memory` and `search_memory` tools when the core API is running on port 8000. No additional setup needed.
+`.vscode/mcp.json` is already committed to this repo. VS Code will discover the real Streamable HTTP MCP server at `http://127.0.0.1:8000/mcp` when the core API is running. No additional setup needed.
 
 ### Claude Desktop
 

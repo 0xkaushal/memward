@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from core.config import settings
 from core.db import Collection, Memory, MemoryCollection, get_db
+from core.workspace import resolve_workspace_id
 
 router = APIRouter(prefix="/curation/collections", tags=["collections"])
 
@@ -63,7 +63,7 @@ async def list_collections(
     workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ) -> CollectionListResponse:
-    ws = workspace_id or settings.WORKSPACE_ID
+    ws = resolve_workspace_id(workspace_id)
     rows = db.query(Collection).filter(Collection.workspace_id == ws).order_by(Collection.created_at.asc()).all()
     return CollectionListResponse(results=[_to_out(c, db) for c in rows])
 
@@ -74,7 +74,7 @@ async def create_collection(
     workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ) -> CollectionOut:
-    ws = workspace_id or settings.WORKSPACE_ID
+    ws = resolve_workspace_id(workspace_id)
     c = Collection(workspace_id=ws, name=body.name.strip(), color=body.color)
     db.add(c)
     db.commit()
@@ -88,7 +88,10 @@ async def update_collection(
     body: UpdateCollectionRequest,
     db: Session = Depends(get_db),
 ) -> CollectionOut:
-    c = db.query(Collection).filter(Collection.id == collection_id).first()
+    c = db.query(Collection).filter(
+        Collection.id == collection_id,
+        Collection.workspace_id == resolve_workspace_id(),
+    ).first()
     if not c:
         raise HTTPException(status_code=404, detail="Collection not found")
     if body.name is not None:
@@ -102,7 +105,10 @@ async def update_collection(
 
 @router.delete("/{collection_id}", status_code=204)
 async def delete_collection(collection_id: str, db: Session = Depends(get_db)) -> None:
-    c = db.query(Collection).filter(Collection.id == collection_id).first()
+    c = db.query(Collection).filter(
+        Collection.id == collection_id,
+        Collection.workspace_id == resolve_workspace_id(),
+    ).first()
     if not c:
         raise HTTPException(status_code=404, detail="Collection not found")
     db.delete(c)
@@ -117,9 +123,16 @@ async def add_memory_to_collection(
     memory_id: str,
     db: Session = Depends(get_db),
 ) -> None:
-    if not db.query(Collection).filter(Collection.id == collection_id).first():
+    workspace_id = resolve_workspace_id()
+    if not db.query(Collection).filter(
+        Collection.id == collection_id,
+        Collection.workspace_id == workspace_id,
+    ).first():
         raise HTTPException(status_code=404, detail="Collection not found")
-    if not db.query(Memory).filter(Memory.id == memory_id).first():
+    if not db.query(Memory).filter(
+        Memory.id == memory_id,
+        Memory.workspace_id == workspace_id,
+    ).first():
         raise HTTPException(status_code=404, detail="Memory not found")
     existing = db.query(MemoryCollection).filter(
         MemoryCollection.memory_id == memory_id,
@@ -136,6 +149,17 @@ async def remove_memory_from_collection(
     memory_id: str,
     db: Session = Depends(get_db),
 ) -> None:
+    workspace_id = resolve_workspace_id()
+    collection = db.query(Collection).filter(
+        Collection.id == collection_id,
+        Collection.workspace_id == workspace_id,
+    ).first()
+    memory = db.query(Memory).filter(
+        Memory.id == memory_id,
+        Memory.workspace_id == workspace_id,
+    ).first()
+    if not collection or not memory:
+        raise HTTPException(status_code=404, detail="Collection or memory not found")
     row = db.query(MemoryCollection).filter(
         MemoryCollection.memory_id == memory_id,
         MemoryCollection.collection_id == collection_id,

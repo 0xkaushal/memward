@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from core.config import settings
 from core.db import Memory, MemoryCollection, get_db
+from core.workspace import resolve_workspace_id
 
 router = APIRouter(prefix="/curation", tags=["curation"])
 
@@ -57,7 +57,7 @@ async def list_memories(
     db: Session = Depends(get_db),
 ) -> MemoryListResponse:
     """List all memories, optionally filtered. No status restriction — shows pending_review too."""
-    ws = workspace_id or settings.WORKSPACE_ID
+    ws = resolve_workspace_id(workspace_id)
     q = db.query(Memory).filter(Memory.workspace_id == ws)
 
     if status_filter:
@@ -85,7 +85,10 @@ async def patch_memory(
     db: Session = Depends(get_db),
 ) -> MemoryOut:
     """Update status and/or content of a memory."""
-    m = db.query(Memory).filter(Memory.id == memory_id).first()
+    m = db.query(Memory).filter(
+        Memory.id == memory_id,
+        Memory.workspace_id == resolve_workspace_id(),
+    ).first()
     if not m:
         raise HTTPException(status_code=404, detail="Memory not found")
 
@@ -113,7 +116,10 @@ async def delete_memory(
     db: Session = Depends(get_db),
 ) -> None:
     """Permanently delete a memory row."""
-    m = db.query(Memory).filter(Memory.id == memory_id).first()
+    m = db.query(Memory).filter(
+        Memory.id == memory_id,
+        Memory.workspace_id == resolve_workspace_id(),
+    ).first()
     if not m:
         raise HTTPException(status_code=404, detail="Memory not found")
     db.delete(m)

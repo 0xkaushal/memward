@@ -175,10 +175,10 @@ def main() -> None:
 
     success = post_to_ingest(session_id, cwd, content)
 
-    # Always advance checkpoint even on ingest failure so we don't
-    # re-send the same lines on the next turn. The SessionStart
-    # reconciliation hook handles genuine missed sessions.
-    if success or True:
+    # Advance only after the API durably accepts this segment. Replays are safe
+    # because the server uses an idempotency key, while advancing after a failed
+    # request would make the reconciliation hook unable to recover the data.
+    if success:
         save_checkpoint(session_id, total_lines)
 
 
