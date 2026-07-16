@@ -13,6 +13,7 @@ from sqlalchemy import (
     Integer,
     create_engine,
 )
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import uuid
 
@@ -73,7 +74,7 @@ class Memory(Base):
         default="pending_review",
         index=True,
     )
-    raw_session_id = Column(String(36), ForeignKey("raw_sessions.id", ondelete="CASCADE"), nullable=True, index=True)
+    raw_session_id = Column(PG_UUID(as_uuid=False), nullable=True, index=True)
     candidate_index = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
@@ -114,7 +115,7 @@ class RawSession(Base):
     __tablename__ = "raw_sessions"
 
     id = Column(
-        String(36),
+        PG_UUID(as_uuid=False),
         primary_key=True,
         default=_new_uuid,
         nullable=False,
