@@ -6,11 +6,10 @@ convention). Read this in full before writing any code — there is no
 code yet, this project is at the architecture/planning stage, and this
 file is the plan.
 
-Project working name: **memward** (unconfirmed — verify
-`github.com/memward`, `pypi.org/project/memward`, and
-`npmjs.com/package/memward` are actually unclaimed before treating the
-name as final; if taken, treat every reference to "memward" below as a
-placeholder to find-and-replace).
+Project working name: **memward**. The name is taken on PyPI by an
+unrelated package but this project is self-hosted and not intended for
+PyPI distribution, so the conflict is intentional and accepted. Do not
+rename without an explicit conversation about public distribution.
 
 ## What this project is
 
@@ -105,7 +104,13 @@ should happen now.
 **`raw_sessions`**
 - `id`, `workspace_id`, `source`, `s3_key`, `created_at`
 
-Deliberately just these two tables for v1. No dedupe/contradiction-resolution engine — the review gate is the substitute (bad or duplicate memories simply don't get approved).
+**`collections`** (added beyond original v1 plan — accepted scope expansion)
+- `id`, `workspace_id`, `name`, `color`, `created_at`, `updated_at`
+
+**`memory_collections`** (join table)
+- `memory_id`, `collection_id`
+
+Four tables total. The `collections` and `memory_collections` tables were added during implementation and accepted as part of v1 — they do not affect the core curation gate or portability seams. No dedupe/contradiction-resolution engine — the review gate is the substitute (bad or duplicate memories simply don't get approved).
 
 ### Flows
 
@@ -327,8 +332,10 @@ work without a rewrite. Preserve them even under time pressure:
   only if a concrete requirement (data sovereignty, cost at real scale)
   forces it — see portability notes above for how that migration should
   work when it happens.
-- **Multi-provider LLM support** (OpenAI-compatible adapter, etc.).
-  Anthropic-only for v1.
+- **Multi-provider LLM support** (multiple simultaneous providers, switching logic, etc.).
+  v1 uses OpenRouter via the OpenAI-compatible SDK (`LLM_BASE_URL` + `LLM_API_KEY`).
+  Migrate to Anthropic directly once an Anthropic API key is available — the swap is
+  a one-file change in `src/processor/main.py` and `src/core/config.py`.
 - **Real multi-tenant UI / team management.** `workspace_id` exists in
   the schema; building actual team/invite/role UI is a later phase.
 - **Dockerfile / docker-compose / container deployment.** The FastAPI +

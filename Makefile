@@ -66,7 +66,7 @@ dev-ui:
 build:
 	cd ui && npm run build
 	@echo ""
-	@echo "✓ UI built to src/ui/dist/"
+	@echo "✓ UI built to ui/dist/"
 	@echo "  The core API will serve it at http://127.0.0.1:$(CORE_PORT)/ui"
 	@echo ""
 

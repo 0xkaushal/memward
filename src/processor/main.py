@@ -1,4 +1,5 @@
 import json
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
 
@@ -8,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core import db as db_module
-from core.config import settings
+from core.config import settings, get_llm_api_key
 from core.db import Memory, RawSession
 
 app = FastAPI(title="memward processor API")
@@ -17,7 +18,7 @@ _llm_client: OpenAI | None = None
 
 
 def _get_llm_client() -> OpenAI | None:
-    api_key = settings.LLM_API_KEY or settings.ANTHROPIC_API_KEY
+    api_key = get_llm_api_key()
     if not api_key:
         return None
     global _llm_client
@@ -29,9 +30,13 @@ def _get_llm_client() -> OpenAI | None:
     return _llm_client
 
 
-@app.on_event("startup")
-def startup() -> None:
+@asynccontextmanager
+async def lifespan(_: "FastAPI"):
     db_module.init_db()
+    yield
+
+
+app = FastAPI(title="memward processor API", lifespan=lifespan)
 
 
 class ProcessMemoryRequest(BaseModel):
