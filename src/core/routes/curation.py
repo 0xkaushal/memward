@@ -11,9 +11,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.db import Memory, MemoryCollection, get_db
-from core.workspace import resolve_workspace_id
+from core.workspace import resolve_workspace_id, verify_token
 
-router = APIRouter(prefix="/curation", tags=["curation"])
+router = APIRouter(prefix="/curation", tags=["curation"], dependencies=[Depends(verify_token)])
 
 _VALID_STATUSES = ("pending_review", "approved", "archived")
 

@@ -5,9 +5,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.db import Memory, get_db
-from core.workspace import resolve_workspace_id
+from core.workspace import resolve_workspace_id, verify_token
 
-router = APIRouter(tags=["search"])
+router = APIRouter(tags=["search"], dependencies=[Depends(verify_token)])
 
 
 class SearchResult(BaseModel):

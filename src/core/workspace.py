@@ -6,9 +6,34 @@ through this one module so replacing it with verified auth later is local.
 
 from typing import Optional
 
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from core.config import settings
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+def verify_token(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(_bearer),
+) -> None:
+    """Validate the Bearer token on every protected route.
+
+    If API_TOKEN is not configured (local dev default), all requests pass
+    through unchecked. In production, set API_TOKEN in the environment and
+    every request must supply a matching Authorization: Bearer <token> header.
+
+    This is the single place to swap in JWT verification or Cognito/OAuth
+    later — no other module should inspect auth headers.
+    """
+    if not settings.API_TOKEN:
+        return  # auth not configured — open for local dev
+    if credentials is None or credentials.credentials != settings.API_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 def current_workspace_id() -> str:

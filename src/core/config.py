@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # Backward compatibility with older env key name.
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY", None)
 
+    # Auth — bearer token for all API routes (optional in local dev; set in prod)
+    API_TOKEN: Optional[str] = os.getenv("API_TOKEN", None)
+
     # App
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 

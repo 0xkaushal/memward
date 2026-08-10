@@ -14,6 +14,9 @@ os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_KEY", "test-key")
 os.environ.setdefault("LLM_API_KEY", "test-llm-key")
 os.environ.setdefault("WORKSPACE_ID", "test-workspace")
+# Ensure token auth is OFF in the default test client so existing tests
+# don't need to supply a Bearer header.
+os.environ["API_TOKEN"] = ""
 
 import pytest
 from fastapi.testclient import TestClient

@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from core.db import get_db
 from core.ingestion import create_raw_session
-from core.workspace import resolve_workspace_id
+from core.workspace import resolve_workspace_id, verify_token
 
-router = APIRouter(tags=["ingest"])
+router = APIRouter(tags=["ingest"], dependencies=[Depends(verify_token)])
 
 
 class IngestRequest(BaseModel):

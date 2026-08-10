@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core.db import Collection, Memory, MemoryCollection, get_db
-from core.workspace import resolve_workspace_id
+from core.workspace import resolve_workspace_id, verify_token
 
-router = APIRouter(prefix="/curation/collections", tags=["collections"])
+router = APIRouter(prefix="/curation/collections", tags=["collections"], dependencies=[Depends(verify_token)])
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
