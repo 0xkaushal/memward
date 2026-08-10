@@ -64,7 +64,29 @@ Served on the same FastAPI app — no separate process needed.
 
 ---
 
-## Processor App (`src/processor/`)
+## Collections API (`src/core/routes/collections.py`)
+
+User-created containers for grouping related memories.
+
+### List collections — `GET /curation/collections`
+- Returns all collections for the workspace, ordered by creation date
+
+### Create collection — `POST /curation/collections`
+- Creates a new named collection with an optional hex color
+
+### Update collection — `PATCH /curation/collections/{id}`
+- Rename or recolor a collection
+
+### Delete collection — `DELETE /curation/collections/{id}`
+- Deletes the collection; membership rows cascade-deleted automatically
+
+### Add memory to collection — `PUT /curation/collections/{id}/memories/{memory_id}`
+- Adds a memory to a collection (no-op if already a member)
+
+### Remove memory from collection — `DELETE /curation/collections/{id}/memories/{memory_id}`
+- Removes a memory from a collection
+
+---
 
 Runs as a separate process on port 8010. Called by the core API after each ingest.
 
@@ -159,6 +181,13 @@ Hook-driven, automatic capture — fires regardless of model behavior.
 - **Edit** — inline textarea edit with save/cancel; blank content blocked
 - **Delete** — confirmation dialog before permanent deletion
 
+### Collections UI
+- Sidebar lists all collections with name, color, and memory count
+- Create new collection with name and color picker
+- Rename and delete collections inline
+- Each memory card has a collection picker — toggle membership in/out
+- Filter memory list by collection
+
 ### Theme
 - Light / dark / system theme toggle
 - Preference persisted in `localStorage`
@@ -172,6 +201,14 @@ Hook-driven, automatic capture — fires regardless of model behavior.
 - `id`, `workspace_id` (indexed), `source`, `category`, `content`, `embedding`, `provenance` (JSON), `status`, `created_at`, `updated_at`
 - `workspace_id` on every row — portability seam for future multi-tenant scaling
 
+### `collections` table
+- `id`, `workspace_id` (indexed), `name`, `color`, `created_at`, `updated_at`
+- User-created containers for grouping memories
+
+### `memory_collections` join table
+- `memory_id`, `collection_id` — many-to-many relationship
+- Cascade-deletes when either the memory or collection is deleted
+
 ### `raw_sessions` table
 - `id`, `workspace_id`, `source`, `s3_key` (optional), `content`, `created_at`
 - Durable record of every raw ingest payload before processing
@@ -184,10 +221,19 @@ Hook-driven, automatic capture — fires regardless of model behavior.
 
 ---
 
+## Auth
+
+### Bearer token (`API_TOKEN`)
+- Optional in local dev — when `API_TOKEN` is unset, all requests pass through unchecked
+- When set, all routes (`/ingest`, `/search`, `/curation/*`) require `Authorization: Bearer <token>`
+- Returns `401 Unauthorized` on missing or incorrect token
+- Single enforcement point in `src/core/workspace.py` (`verify_token` dependency) — swap for JWT/OAuth later without touching route code
+
+---
+
 ## Not yet implemented (planned)
 
 - pgvector similarity search (currently keyword `ILIKE`)
 - SQS async processing (currently direct HTTP call — v2 upgrade path)
-- Lambda / API Gateway deployment (Mangum wrapper — v2)
-- Auth / API key per workspace
+- Lambda / API Gateway deployment (Mangum wrapper)
 - Multi-workspace curation UI
