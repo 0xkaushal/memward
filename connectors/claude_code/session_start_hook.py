@@ -153,13 +153,14 @@ def reconcile_missed_sessions(current_session_id: str, source_event: str) -> Non
             save_checkpoint(session_id, total_lines)
 
 
-def fetch_and_inject_memories() -> None:
+def fetch_and_inject_memories(claude_project_dir: Path) -> None:
     """
-    Fetch all approved memories from the memward server and append them
-    to the model's prompt context via Claude Code's hook JSON output.
+    Fetch all approved memories from the memward server and write them to
+    the Claude Code memory directory so they are injected into every session.
 
-    Writes {"context": "..."} to stdout — Claude Code injects this into
-    the model's context silently, without showing it as a user message.
+    Claude Code reads all files under:
+      ~/.claude/projects/<project>/memory/
+    and prepends their contents to the model's context automatically.
 
     Silently skips if the server is not running — memory is best-effort.
     """
@@ -175,20 +176,30 @@ def fetch_and_inject_memories() -> None:
         return
 
     results = data.get("results", [])
+
+    memory_dir = claude_project_dir / "memory"
+    memory_dir.mkdir(parents=True, exist_ok=True)
+    memory_file = memory_dir / "MEMORY.md"
+
     if not results:
+        # Clear stale memory file if no approved memories exist
+        if memory_file.exists():
+            memory_file.unlink()
         return
 
-    lines = ["Approved memories from previous sessions:\n"]
+    lines = [
+        "# Context from previous sessions",
+        "",
+        "The following facts were saved from previous sessions and approved for use. "
+        "Treat them as ground truth unless the user says otherwise.",
+        "",
+    ]
     for r in results:
-        category = r.get("category", "general")
-        source = r.get("source", "unknown")
         content = r.get("content", "").strip()
         if content:
-            lines.append(f"[{category} / {source}] {content}")
+            lines.append(f"- {content}")
 
-    context_text = "\n".join(lines)
-    sys.stdout.write(json.dumps({"context": context_text}))
-    sys.stdout.flush()
+    memory_file.write_text("\n".join(lines), encoding="utf-8")
 
 
 def main() -> None:
@@ -204,8 +215,22 @@ def main() -> None:
     current_session_id = event.get("session_id", "unknown")
     source_event = event.get("source", "startup")
 
+    # Derive the Claude Code project directory for this session.
+    # Transcript files live under ~/.claude/projects/<slug>/<session_id>.jsonl
+    # so the project dir is the parent of any transcript file for this session.
+    claude_project_dir: Path | None = None
+    for transcript_file in CLAUDE_PROJECTS_DIR.rglob(f"{current_session_id}.jsonl"):
+        claude_project_dir = transcript_file.parent
+        break
+    if claude_project_dir is None:
+        # Fallback: use the first project dir found (single-project common case)
+        project_dirs = [p for p in CLAUDE_PROJECTS_DIR.iterdir() if p.is_dir()]
+        if project_dirs:
+            claude_project_dir = project_dirs[0]
+
     reconcile_missed_sessions(current_session_id, source_event)
-    fetch_and_inject_memories()
+    if claude_project_dir is not None:
+        fetch_and_inject_memories(claude_project_dir)
 
 
 if __name__ == "__main__":
