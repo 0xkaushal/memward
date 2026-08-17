@@ -126,8 +126,9 @@ def _extract_candidates(content: str) -> list[tuple[str, str]]:
                         "content": (
                             "Extract durable, atomic memories from the input. Return JSON only: "
                             '{"memories":[{"content":"...","category":"code|project|personal|assistant_chat"}]}. '
-                            "Include only facts, decisions, preferences, or constraints worth reviewing. "
-                            "Never return a transcript, dialogue labels, or more than 8 items."
+                            "Include only: explicit decisions made, user preferences stated, constraints agreed on, architectural choices, bugs fixed with root cause, or personal facts the user explicitly stated about themselves. "
+                            "EXCLUDE: current git branch, current working directory, recent commit summaries, transient state, anything that will be stale within a day, and anything the user did not explicitly state or decide. "
+                            "Never return a transcript, dialogue labels, or more than 8 items. If nothing worth remembering exists, return {\"memories\":[]}."
                         ),
                     },
                     {"role": "user", "content": content[:12000]},
