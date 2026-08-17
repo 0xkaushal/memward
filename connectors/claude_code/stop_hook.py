@@ -175,7 +175,7 @@ def main() -> None:
 
     success = post_to_ingest(session_id, cwd, content)
 
-    # Advance only after the API durably accepts this segment. Replays are safe
+    # Advance only after the API durably accepts this segment. Replays are safe.
     # because the server uses an idempotency key, while advancing after a failed
     # request would make the reconciliation hook unable to recover the data.
     if success:
