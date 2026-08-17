@@ -33,7 +33,7 @@ def save_memory(
     provenance: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """Save a concise candidate memory for human review."""
-    if source not in {"claude_code", "copilot", "claude_desktop", "internal_chatbot_x"}:
+    if source not in {"claude_code", "copilot", "claude_desktop", "opencode", "internal_chatbot_x"}:
         raise ValueError("Unsupported source")
     db = _session()
     try:
@@ -58,17 +58,30 @@ def search_memory(query: str, limit: int = 5) -> dict[str, Any]:
     """Search only human-approved memories for the current workspace."""
     db = _session()
     try:
-        rows = (
-            db.query(Memory)
-            .filter(
-                Memory.workspace_id == current_workspace_id(),
-                Memory.status == "approved",
-                Memory.content.ilike(f"%{query}%"),
-            )
-            .order_by(Memory.created_at.desc())
-            .limit(max(1, min(limit, 25)))
-            .all()
+        q = db.query(Memory).filter(
+            Memory.workspace_id == current_workspace_id(),
+            Memory.status == "approved",
         )
+        # Only apply text filter when the query is a specific term, not a
+        # natural-language question. Fall back to returning all approved
+        # memories when no keyword match is possible — the LLM can reason
+        # over them. Vector similarity search is the v2 upgrade path.
+        if query.strip():
+            q = q.filter(Memory.content.ilike(f"%{query}%"))
+        rows = q.order_by(Memory.created_at.desc()).limit(max(1, min(limit, 25))).all()
+        # If keyword filter returned nothing, return all approved memories so
+        # the LLM always has full context rather than a false empty result.
+        if not rows and query.strip():
+            rows = (
+                db.query(Memory)
+                .filter(
+                    Memory.workspace_id == current_workspace_id(),
+                    Memory.status == "approved",
+                )
+                .order_by(Memory.created_at.desc())
+                .limit(max(1, min(limit, 25)))
+                .all()
+            )
         return {
             "results": [
                 {

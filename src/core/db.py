@@ -126,6 +126,7 @@ class RawSession(Base):
             "claude_code",
             "copilot",
             "claude_desktop",
+            "opencode",
             "internal_chatbot_x",
             name="raw_source_type",
         ),
