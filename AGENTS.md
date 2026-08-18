@@ -14,7 +14,7 @@ A memward MCP server is available with two tools: `save_memory` and `search_memo
 - After a significant decision is made in the conversation
 - When the user explicitly asks you to remember something
 
-Keep `content` concise — one or two sentences max.
+Always pass `source="opencode"` when calling `save_memory`. Keep `content` concise — one or two sentences max.
 
 ---
 

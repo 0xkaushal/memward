@@ -29,10 +29,10 @@ def _session():
 @mcp.tool()
 def save_memory(
     content: str,
-    source: str = "copilot",
+    source: str = "opencode",
     provenance: dict[str, Any] | None = None,
 ) -> dict[str, str]:
-    """Save a concise candidate memory for human review."""
+    """Save a concise candidate memory for human review. Always pass source='opencode' when calling from OpenCode."""
     if source not in {"claude_code", "copilot", "claude_desktop", "opencode", "internal_chatbot_x"}:
         raise ValueError("Unsupported source")
     db = _session()
