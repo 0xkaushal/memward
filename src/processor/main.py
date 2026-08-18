@@ -126,8 +126,9 @@ def _extract_candidates(content: str) -> list[tuple[str, str]]:
                         "content": (
                             "Extract durable, atomic memories from the input. Return JSON only: "
                             '{"memories":[{"content":"...","category":"code|project|personal|assistant_chat"}]}. '
-                            "Include only: explicit decisions made, user preferences stated, constraints agreed on, architectural choices, bugs fixed with root cause, or personal facts the user explicitly stated about themselves. "
-                            "EXCLUDE: current git branch, current working directory, recent commit summaries, transient state, anything that will be stale within a day, and anything the user did not explicitly state or decide. "
+                            "Include only: explicit decisions made, user preferences stated, constraints agreed on, or personal facts the user explicitly stated about themselves. "
+                            "EXCLUDE: questions the user asked, retrieval turns (user asking what they previously said), assistant answers to questions, current git branch, current working directory, recent commit summaries, transient state, anything stale within a day, anything the user did not explicitly state or decide. "
+                            "A turn where the user is asking 'what X did I buy?' or 'where do I work?' is a retrieval question — extract nothing from it. "
                             "Never return a transcript, dialogue labels, or more than 8 items. If nothing worth remembering exists, return {\"memories\":[]}."
                         ),
                     },
