@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # Processor API (POC)
     PROCESSOR_API_URL: str = os.getenv("PROCESSOR_API_URL", "http://127.0.0.1:8010")
     PROCESSOR_TIMEOUT_SECONDS: float = float(
-        os.getenv("PROCESSOR_TIMEOUT_SECONDS", "3.0")
+        os.getenv("PROCESSOR_TIMEOUT_SECONDS", "30.0")
     )
 
     # LLM provider configuration (OpenRouter or any OpenAI-compatible endpoint)
