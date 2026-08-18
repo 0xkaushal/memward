@@ -17,6 +17,8 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import uuid
 
+from pgvector.sqlalchemy import Vector
+
 from core.config import settings
 
 Base = declarative_base()
@@ -44,6 +46,7 @@ class Memory(Base):
             "claude_code",
             "copilot",
             "claude_desktop",
+            "opencode",
             "internal_chatbot_x",
             name="source_type",
         ),
@@ -61,7 +64,7 @@ class Memory(Base):
         default="personal",
     )
     content = Column(Text, nullable=False)
-    embedding = Column(Text, nullable=True)  # JSON array string from embedding model
+    embedding = Column(Vector(1536), nullable=True)  # pgvector column; 1536 dims = text-embedding-3-small
     provenance = Column(JSON, nullable=True)  # {session_id, tool, timestamp, git_branch, git_repo}
     status = Column(
         Enum(
@@ -169,6 +172,19 @@ def init_db() -> None:
             "No database URL configured. Set SUPABASE_DB_URL or SUPABASE_URL + SUPABASE_KEY"
         )
     engine = create_engine(db_url, echo=settings.DEBUG)
+    # Register pgvector type with every new psycopg2 connection.
+    # This is a no-op if the vector extension is not yet enabled in the DB —
+    # the server will still start and fall back to keyword search.
+    from sqlalchemy import event
+    from pgvector.psycopg2 import register_vector
+
+    @event.listens_for(engine, "connect")
+    def _register_vector(dbapi_conn, _):
+        try:
+            register_vector(dbapi_conn)
+        except Exception:
+            pass  # vector extension not yet installed; keyword fallback will be used
+
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
 

@@ -69,7 +69,7 @@ async def ingest_memory(
     workspace_id = resolve_workspace_id(payload.workspace_id)
 
     # Validate source
-    valid_sources = ["claude_code", "copilot", "claude_desktop", "internal_chatbot_x"]
+    valid_sources = ["claude_code", "copilot", "claude_desktop", "opencode", "internal_chatbot_x"]
     if payload.source not in valid_sources:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

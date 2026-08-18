@@ -100,17 +100,22 @@ def _categorize(content: str) -> str:
         return _categorize_heuristic(content)
 
 
-def _embed(content: str) -> tuple[str, int]:
-    """Generate embedding via LLM provider; returns (json_array_str, dims)."""
+def _embed(content: str) -> tuple[list[float] | None, int]:
+    """Generate embedding via LLM provider; returns (vector_list, dims).
+
+    Returns (None, 0) if the LLM client is not configured.
+    The vector is returned as a plain Python list — pgvector's SQLAlchemy
+    integration accepts this directly for the Vector column type.
+    """
     client = _get_llm_client()
     if client is None:
-        return "[]", 0
+        return None, 0
     resp = client.embeddings.create(
         model=settings.LLM_EMBEDDING_MODEL,
         input=content[:8000],
     )
     vector = resp.data[0].embedding
-    return json.dumps(vector), len(vector)
+    return vector, len(vector)
 
 
 def _extract_candidates(content: str) -> list[tuple[str, str]]:
@@ -194,14 +199,14 @@ def process_memory(payload: ProcessMemoryRequest) -> ProcessMemoryResponse:
         memories: list[Memory] = []
         embedding_dims = 0
         for candidate_index, (content, category) in enumerate(candidates):
-            embedding_str, dims = _embed(content)
+            vector, dims = _embed(content)
             embedding_dims = max(embedding_dims, dims)
             memory = Memory(
                 workspace_id=raw.workspace_id,
                 source=raw.source,
                 category=category,
                 content=content,
-                embedding=embedding_str if dims > 0 else None,
+                embedding=vector,  # list[float] or None — pgvector Vector column accepts both
                 provenance={"raw_session_id": raw.id, **(raw.provenance or {})},
                 raw_session_id=raw.id,
                 candidate_index=candidate_index,

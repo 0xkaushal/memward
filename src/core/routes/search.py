@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from core.db import Memory, get_db
+from core.db import get_db
 from core.workspace import resolve_workspace_id, verify_token
+from core.search import search_approved_memories
 
 router = APIRouter(tags=["search"], dependencies=[Depends(verify_token)])
 
@@ -43,12 +44,13 @@ async def search_memory(
     db: Session = Depends(get_db),
 ) -> SearchResponse:
     """
-    Search approved memories for the workspace.
+    Search approved memories for the workspace using vector cosine similarity
+    (with keyword and full-dump fallbacks).
 
     Per AGENTS.md flow:
     1. Client calls GET /search?query=...
-    2. FastAPI embeds the query (not done yet, uses keyword search for v1)
-    3. pgvector similarity search filtered to status=approved AND workspace_id
+    2. FastAPI embeds the query via the same embedding model as the processor
+    3. pgvector cosine similarity search filtered to status=approved AND workspace_id
     4. Return top-N matches
 
     If query is omitted, returns the most recent approved memories (used by
@@ -58,15 +60,12 @@ async def search_memory(
     """
     workspace_id = resolve_workspace_id(workspace_id)
 
-    # For v1, simple keyword search on content
-    # TODO: Implement embedding + pgvector similarity search
-    base_q = db.query(Memory).filter(
-        Memory.workspace_id == workspace_id,
-        Memory.status == "approved",
+    matches = search_approved_memories(
+        db,
+        query=query or "",
+        workspace_id=workspace_id,
+        limit=limit,
     )
-    if query:
-        base_q = base_q.filter(Memory.content.ilike(f"%{query}%"))
-    matches = base_q.order_by(Memory.created_at.desc()).limit(limit).all()
 
     results = [
         SearchResult(

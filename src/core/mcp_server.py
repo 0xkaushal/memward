@@ -8,6 +8,7 @@ from core import db as db_module
 from core.db import Memory
 from core.ingestion import create_raw_session
 from core.workspace import current_workspace_id
+from core.search import search_approved_memories
 
 mcp = FastMCP(
     "memward",
@@ -58,30 +59,7 @@ def search_memory(query: str, limit: int = 5) -> dict[str, Any]:
     """Search only human-approved memories for the current workspace."""
     db = _session()
     try:
-        q = db.query(Memory).filter(
-            Memory.workspace_id == current_workspace_id(),
-            Memory.status == "approved",
-        )
-        # Only apply text filter when the query is a specific term, not a
-        # natural-language question. Fall back to returning all approved
-        # memories when no keyword match is possible — the LLM can reason
-        # over them. Vector similarity search is the v2 upgrade path.
-        if query.strip():
-            q = q.filter(Memory.content.ilike(f"%{query}%"))
-        rows = q.order_by(Memory.created_at.desc()).limit(max(1, min(limit, 25))).all()
-        # If keyword filter returned nothing, return all approved memories so
-        # the LLM always has full context rather than a false empty result.
-        if not rows and query.strip():
-            rows = (
-                db.query(Memory)
-                .filter(
-                    Memory.workspace_id == current_workspace_id(),
-                    Memory.status == "approved",
-                )
-                .order_by(Memory.created_at.desc())
-                .limit(max(1, min(limit, 25)))
-                .all()
-            )
+        rows = search_approved_memories(db, query=query, workspace_id=current_workspace_id(), limit=limit)
         return {
             "results": [
                 {
