@@ -1,5 +1,23 @@
 # AGENTS.md
 
+## Memory — use memward MCP tools
+
+A memward MCP server is available with two tools: `save_memory` and `search_memory`.
+
+**When to call `search_memory`:**
+- At the start of any task to surface relevant context from past sessions
+- When you don't know something about the user's preferences, decisions, or past work
+- When the user asks about something you have no context for — search before saying "I don't know"
+
+**When to call `save_memory`:**
+- When the user states a preference, habit, or opinion
+- After a significant decision is made in the conversation
+- When the user explicitly asks you to remember something
+
+Keep `content` concise — one or two sentences max.
+
+---
+
 This file is the entry point for any coding agent working on this repo
 (Claude Code, GitHub Copilot, or anything else that reads `AGENTS.md` by
 convention). Read this in full before writing any code — there is no
