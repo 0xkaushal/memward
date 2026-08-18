@@ -1,11 +1,13 @@
 """Real Streamable HTTP MCP surface for Copilot and other MCP clients."""
 
+import asyncio
 from typing import Any
 
+import httpx
 from mcp.server.fastmcp import FastMCP
 
 from core import db as db_module
-from core.db import Memory
+from core.config import settings
 from core.ingestion import create_raw_session
 from core.workspace import current_workspace_id
 from core.search import search_approved_memories
@@ -27,6 +29,16 @@ def _session():
     return db_module.SessionLocal()
 
 
+async def _dispatch_processor(payload: dict) -> None:
+    """Fire-and-forget processor dispatch — same pattern as the /ingest route."""
+    try:
+        async with httpx.AsyncClient(timeout=settings.PROCESSOR_TIMEOUT_SECONDS) as client:
+            await client.post(f"{settings.PROCESSOR_API_URL}/process-memory", json=payload)
+    except Exception:
+        # Raw session remains pending; process-pending will pick it up later.
+        return
+
+
 @mcp.tool()
 def save_memory(
     content: str,
@@ -38,13 +50,26 @@ def save_memory(
         raise ValueError("Unsupported source")
     db = _session()
     try:
+        workspace_id = current_workspace_id()
         raw_session, created = create_raw_session(
             db,
             source=source,
-            workspace_id=current_workspace_id(),
+            workspace_id=workspace_id,
             content=content,
             provenance=provenance,
         )
+        if created:
+            payload = {
+                "raw_session_id": str(raw_session.id),
+                "workspace_id": workspace_id,
+                "source": source,
+            }
+            try:
+                loop = asyncio.get_event_loop()
+                loop.create_task(_dispatch_processor(payload))
+            except RuntimeError:
+                # No running event loop (e.g. sync context) — dispatch best-effort
+                asyncio.run(_dispatch_processor(payload))
         return {
             "status": "queued" if created else "duplicate",
             "session_id": str(raw_session.id),
