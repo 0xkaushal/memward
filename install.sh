@@ -68,31 +68,27 @@ prompt_env_value() {
 }
 
 prompt_mode() {
-  printf '[memward] Install mode [local]: '
-  IFS= read -r selected_mode
-
-  if [ -z "$selected_mode" ]; then
-    selected_mode="local"
-  fi
-
-  if [ "$selected_mode" != "local" ]; then
-    fail "Only local mode is supported by this installer right now."
-  fi
+  info "Choose install mode:"
+  PS3='Select install mode: '
+  select selected_mode in "local"; do
+    if [ -n "$selected_mode" ]; then
+      break
+    fi
+    info "Please choose a valid install mode."
+  done
 
   set_env_value "MEMWARD_MODE" "$selected_mode" "$APP_DIR/.env"
 }
 
 prompt_database_choice() {
-  printf '[memward] Database choice [local]: '
-  IFS= read -r selected_db
-
-  if [ -z "$selected_db" ]; then
-    selected_db="local"
-  fi
-
-  if [ "$selected_db" != "local" ] && [ "$selected_db" != "supabase" ]; then
-    fail "Database choice must be 'local' or 'supabase'."
-  fi
+  info "Choose database:"
+  PS3='Select database: '
+  select selected_db in "local" "supabase"; do
+    if [ -n "$selected_db" ]; then
+      break
+    fi
+    info "Please choose a valid database option."
+  done
 
   DATABASE_CHOICE="$selected_db"
 }
