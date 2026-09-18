@@ -8,8 +8,8 @@ Search strategy (in priority order):
    an embedding, use cosine distance ordering.
 2. Keyword fallback — ilike on content for memories without embeddings, or
    when pgvector is unavailable.
-3. Full dump fallback — if neither produces results, return all approved
-   memories so the LLM always has context rather than a false empty.
+3. Recent approved listing — if no query is provided, return recent approved
+   memories for connector injection and review surfaces.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from core.db import Memory
 from core.config import settings, get_llm_api_key
@@ -58,8 +59,8 @@ def search_approved_memories(
 ) -> list[Any]:
     """Return approved memories ranked by relevance to query.
 
-    Tries vector cosine similarity first; falls back to keyword search;
-    falls back to a full dump if neither returns results.
+    Tries vector cosine similarity first; falls back to keyword search.
+    If no query is provided, returns the most recent approved memories.
     """
     limit = max(1, min(limit, 25))
     base_filter = [
@@ -67,8 +68,10 @@ def search_approved_memories(
         Memory.status == "approved",
     ]
 
+    query_text = query.strip()
+
     # --- 1. Vector similarity search ---
-    if query.strip():
+    if query_text and settings.MEMWARD_MODE != "local":
         query_vec = _embed_query(query)
         if query_vec is not None:
             try:
@@ -88,18 +91,31 @@ def search_approved_memories(
                 db.rollback()  # Clear the failed transaction so fallback queries can run
 
     # --- 2. Keyword fallback ---
-    if query.strip():
-        rows = (
-            db.query(Memory)
-            .filter(*base_filter, Memory.content.ilike(f"%{query}%"))
-            .order_by(Memory.created_at.desc())
-            .limit(limit)
-            .all()
-        )
+    if query_text:
+        keyword_pattern = f"%{query_text}%"
+        if settings.MEMWARD_MODE == "local":
+            rows = (
+                db.query(Memory)
+                .filter(*base_filter, func.lower(Memory.content).like(func.lower(keyword_pattern)))
+                .order_by(Memory.created_at.desc())
+                .limit(limit)
+                .all()
+            )
+        else:
+            rows = (
+                db.query(Memory)
+                .filter(*base_filter, Memory.content.ilike(keyword_pattern))
+                .order_by(Memory.created_at.desc())
+                .limit(limit)
+                .all()
+            )
         if rows:
             return rows
 
-    # --- 3. Full dump fallback (always give the LLM some context) ---
+    if query_text:
+        return []
+
+    # --- 3. Recent approved listing (used when query is omitted) ---
     return (
         db.query(Memory)
         .filter(*base_filter)

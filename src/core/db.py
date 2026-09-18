@@ -1,5 +1,6 @@
 """Database models and connection management."""
 from datetime import datetime, timezone
+import json
 
 from sqlalchemy import (
     JSON,
@@ -14,14 +15,39 @@ from sqlalchemy import (
     create_engine,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import uuid
 
 from pgvector.sqlalchemy import Vector
 
-from core.config import settings
+from core.config import get_local_db_path, get_memward_home, settings
 
 Base = declarative_base()
+
+
+class EmbeddingType(TypeDecorator):
+    """Store pgvector on Postgres and JSON-encoded vectors on SQLite."""
+
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(Vector(1536))
+        return dialect.type_descriptor(JSON())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return value
+        if isinstance(value, str):
+            return json.loads(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        return value
 
 
 def _new_uuid() -> str:
@@ -64,7 +90,7 @@ class Memory(Base):
         default="personal",
     )
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(1536), nullable=True)  # pgvector column; 1536 dims = text-embedding-3-small
+    embedding = Column(EmbeddingType(), nullable=True)  # pgvector on Postgres, JSON on SQLite
     provenance = Column(JSON, nullable=True)  # {session_id, tool, timestamp, git_branch, git_repo}
     status = Column(
         Enum(
@@ -149,7 +175,13 @@ class RawSession(Base):
 
 # Database connection setup
 def get_db_url() -> str:
-    """Get database URL from config, preferring raw Postgres URL."""
+    """Get database URL from config, supporting local SQLite mode."""
+    if settings.MEMWARD_MODE == "local":
+        local_db_path = get_local_db_path()
+        if str(local_db_path) == ":memory:":
+            return "sqlite:///:memory:"
+        local_db_path.parent.mkdir(parents=True, exist_ok=True)
+        return f"sqlite:///{local_db_path}"
     if settings.SUPABASE_DB_URL:
         return settings.SUPABASE_DB_URL
     if settings.SUPABASE_URL and settings.SUPABASE_KEY:
@@ -171,19 +203,27 @@ def init_db() -> None:
         raise ValueError(
             "No database URL configured. Set SUPABASE_DB_URL or SUPABASE_URL + SUPABASE_KEY"
         )
-    engine = create_engine(db_url, echo=settings.DEBUG)
-    # Register pgvector type with every new psycopg2 connection.
-    # This is a no-op if the vector extension is not yet enabled in the DB —
-    # the server will still start and fall back to keyword search.
-    from sqlalchemy import event
-    from pgvector.psycopg2 import register_vector
+    connect_args = {"check_same_thread": False} if db_url.startswith("sqlite:///") else {}
+    engine = create_engine(db_url, echo=settings.DEBUG, connect_args=connect_args)
 
-    @event.listens_for(engine, "connect")
-    def _register_vector(dbapi_conn, _):
-        try:
-            register_vector(dbapi_conn)
-        except Exception:
-            pass  # vector extension not yet installed; keyword fallback will be used
+    if settings.MEMWARD_MODE == "local":
+        memward_home = get_memward_home()
+        memward_home.mkdir(parents=True, exist_ok=True)
+        (memward_home / "checkpoints").mkdir(parents=True, exist_ok=True)
+        (memward_home / "logs").mkdir(parents=True, exist_ok=True)
+    else:
+        # Register pgvector type with every new psycopg2 connection.
+        # This is a no-op if the vector extension is not yet enabled in the DB —
+        # the server will still start and fall back to keyword search.
+        from sqlalchemy import event
+        from pgvector.psycopg2 import register_vector
+
+        @event.listens_for(engine, "connect")
+        def _register_vector(dbapi_conn, _):
+            try:
+                register_vector(dbapi_conn)
+            except Exception:
+                pass  # vector extension not yet installed; keyword fallback will be used
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)

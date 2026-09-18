@@ -9,6 +9,8 @@ import os
 
 # Set env vars BEFORE importing anything from the app so pydantic-settings
 # picks them up.
+os.environ.setdefault("MEMWARD_MODE", "local")
+os.environ.setdefault("MEMWARD_LOCAL_DB_PATH", ":memory:")
 os.environ.setdefault("SUPABASE_DB_URL", "sqlite:///:memory:")
 os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_KEY", "test-key")

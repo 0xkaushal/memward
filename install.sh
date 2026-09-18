@@ -137,9 +137,7 @@ prompt_database_choice
 if [ "$DATABASE_CHOICE" = "supabase" ]; then
   prompt_env_value "SUPABASE_DB_URL" "Enter your Supabase/Postgres connection string"
 else
-  info "Local database mode is not implemented yet."
-  info "Switching to the current hosted-database setup."
-  prompt_env_value "SUPABASE_DB_URL" "Enter your Supabase/Postgres connection string"
+  info "Using local SQLite database under ~/.memward/."
 fi
 
 prompt_env_value "LLM_API_KEY" "Enter your LLM API key" "true"
@@ -160,7 +158,7 @@ Next steps:
    http://127.0.0.1:5173
 
 Note:
-- The local database option is not implemented yet.
-- Right now both paths still require a Supabase or Postgres connection string.
+- Local mode stores state under ~/.memward/.
+- Supabase/Postgres is only required when you choose the hosted database path.
 
 EOF
