@@ -21,6 +21,66 @@ require_command() {
   fi
 }
 
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local env_file="$3"
+
+  if grep -qE "^${key}=" "$env_file"; then
+    perl -0pi -e "s|^${key}=.*$|${key}=${value}|m" "$env_file"
+  else
+    printf '\n%s=%s\n' "$key" "$value" >> "$env_file"
+  fi
+}
+
+prompt_env_value() {
+  local key="$1"
+  local prompt_text="$2"
+  local secret="${3:-false}"
+  local current_value=""
+
+  if [ -f "$APP_DIR/.env" ]; then
+    current_value="$(perl -ne 'print "$1\n" if /^'"$key"'=(.*)$/' "$APP_DIR/.env" | tail -n 1)"
+  fi
+
+  if [ -n "$current_value" ] && [ "$current_value" != "sk-or-v1-..." ] && [ "$current_value" != "postgresql://postgres:password@db.your-project.supabase.co:5432/postgres" ]; then
+    info "$key already set in .env"
+    return
+  fi
+
+  if [ "$secret" = "true" ]; then
+    printf '[memward] %s: ' "$prompt_text"
+    stty -echo
+    IFS= read -r input_value
+    stty echo
+    printf '\n'
+  else
+    printf '[memward] %s: ' "$prompt_text"
+    IFS= read -r input_value
+  fi
+
+  if [ -z "$input_value" ]; then
+    fail "$key is required to continue."
+  fi
+
+  set_env_value "$key" "$input_value" "$APP_DIR/.env"
+}
+
+prompt_mode() {
+  printf '[memward] Install mode [local]: '
+  IFS= read -r selected_mode
+
+  if [ -z "$selected_mode" ]; then
+    selected_mode="local"
+  fi
+
+  if [ "$selected_mode" != "local" ]; then
+    fail "Only local mode is supported by this installer right now."
+  fi
+
+  set_env_value "MEMWARD_MODE" "$selected_mode" "$APP_DIR/.env"
+}
+
 info "Checking required tools..."
 require_command git
 require_command uv
@@ -55,6 +115,10 @@ else
   info "Keeping existing .env file."
 fi
 
+prompt_mode
+prompt_env_value "SUPABASE_DB_URL" "Enter your Supabase/Postgres connection string"
+prompt_env_value "LLM_API_KEY" "Enter your LLM API key" "true"
+
 cat <<EOF
 
 [memward] Install complete.
@@ -63,16 +127,11 @@ App location:
   $APP_DIR
 
 Next steps:
-1. Edit $APP_DIR/.env and set your credentials.
-   Current required setup includes:
-   - SUPABASE_DB_URL
-   - LLM_API_KEY
-
-2. Start the app:
+1. Start the app:
    cd "$APP_DIR"
    ./start.sh
 
-3. Open the curation UI:
+2. Open the curation UI:
    http://127.0.0.1:5173
 
 Note:
