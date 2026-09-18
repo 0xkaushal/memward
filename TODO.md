@@ -4,6 +4,62 @@ This list turns the architecture review into an execution order. The first goal
 is a trustworthy vertical slice: durable capture → extracted candidates → human
 review → approved-only retrieval.
 
+## Immediate Features
+
+- [ ] Add a first-run local mode using `~/.memward/` as the default install path.
+  - Create `~/.memward/` automatically on first run.
+  - Store the local database, config, logs, and optional raw session data there.
+  - Keep this mode aimed at a single developer onboarding themselves quickly.
+
+- [ ] Choose and implement the local database for local mode.
+  - Use a small embedded database for first-run setup, most likely SQLite.
+  - Keep the schema capable of enforcing the same review workflow as the hosted path.
+  - Avoid introducing behavior that breaks the eventual Postgres migration path.
+
+- [ ] Add a storage abstraction so local mode and Postgres mode share the same product behavior.
+  - Separate storage concerns from ingestion, processing, curation, and retrieval logic.
+  - Support at least `local` and `postgres` storage modes.
+  - Keep the review gate and workspace scoping semantics consistent across both modes.
+
+- [ ] Add a mode selector to configuration and make local mode the default.
+  - Introduce a config surface such as `MEMWARD_MODE=local|postgres`.
+  - Require only `LLM_API_KEY` for the default local path.
+  - Keep Postgres or Supabase configuration available as an explicit upgrade path.
+
+- [ ] Implement first-run bootstrap for local mode.
+  - Initialize the local database schema automatically.
+  - Write a default config if one does not exist.
+  - Fail with actionable messages when required keys such as `LLM_API_KEY` are missing.
+
+- [ ] Preserve the review gate in local mode exactly as in hosted mode.
+  - New memories must still land as `pending_review`.
+  - Retrieval must still return only `approved` memories.
+  - Make local mode a packaging/onboarding convenience, not a weaker trust model.
+
+- [ ] Decide the retrieval strategy for first local mode.
+  - Either keep API-based embeddings in local mode.
+  - Or introduce a clearly temporary keyword-search fallback if embeddings add too much setup friction.
+  - Document any local-mode retrieval limitations explicitly.
+
+- [ ] Add install and setup UX around local mode.
+  - During setup, recommend local mode for individual developers.
+  - Make the first-run path ask for as little configuration as possible.
+  - Optimize for time-to-first-memory rather than infrastructure flexibility.
+
+- [ ] Define a migration path from local mode to Postgres mode.
+  - Make it possible to export local memories and import them later.
+  - Keep identifiers and schema choices portable enough to support migration without rewriting stored data.
+
+- [ ] Document local mode as the recommended single-developer onboarding path.
+  - Add a quickstart that requires only local mode plus `LLM_API_KEY`.
+  - Document what is stored inside `~/.memward/`.
+  - Explain how and when to upgrade to Postgres-backed mode later.
+
+- [ ] Add smoke tests for local mode.
+  - Verify first run creates `~/.memward/` and initializes schema.
+  - Verify save, review, approve, and approved-only retrieval all work.
+  - Verify local mode failures point the developer to the exact missing setup step.
+
 ## P0 — Correctness and product promises
 
 - [ ] Rename the project before publishing or packaging.
