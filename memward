@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+resolve_script_dir() {
+  local source_path="$1"
+  while [ -L "$source_path" ]; do
+    local source_dir
+    source_dir="$(cd "$(dirname "$source_path")" && pwd -P)"
+    source_path="$(readlink "$source_path")"
+    [[ "$source_path" != /* ]] && source_path="$source_dir/$source_path"
+  done
+  cd "$(dirname "$source_path")" && pwd -P
+}
+
+APP_DIR="$(resolve_script_dir "$0")"
+
+info() {
+  printf '[memward] %s\n' "$1"
+}
+
+fail() {
+  printf '[memward] Error: %s\n' "$1" >&2
+  exit 1
+}
+
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local env_file="$3"
+
+  if grep -qE "^${key}=" "$env_file"; then
+    perl -0pi -e "s|^${key}=.*$|${key}=${value}|m" "$env_file"
+  else
+    printf '\n%s=%s\n' "$key" "$value" >> "$env_file"
+  fi
+}
+
+prompt_env_value() {
+  local key="$1"
+  local prompt_text="$2"
+  local secret="${3:-false}"
+  local current_value=""
+
+  if [ -f "$APP_DIR/.env" ]; then
+    current_value="$(perl -ne 'print "$1\n" if /^'"$key"'=(.*)$/' "$APP_DIR/.env")"
+  fi
+
+  if [ -n "$current_value" ] && [ "$current_value" != "sk-or-v1-..." ] && [ "$current_value" != "postgresql://postgres:password@db.your-project.supabase.co:5432/postgres" ]; then
+    info "$key already set in .env"
+    return
+  fi
+
+  if [ "$secret" = "true" ]; then
+    printf '[memward] %s: ' "$prompt_text"
+    stty -echo
+    IFS= read -r input_value
+    stty echo
+    printf '\n'
+  else
+    printf '[memward] %s: ' "$prompt_text"
+    IFS= read -r input_value
+  fi
+
+  if [ -z "$input_value" ]; then
+    fail "$key is required to continue."
+  fi
+
+  set_env_value "$key" "$input_value" "$APP_DIR/.env"
+}
+
+prompt_mode() {
+  info "Choose install mode:"
+  PS3='Select install mode: '
+  select selected_mode in "local"; do
+    if [ -n "$selected_mode" ]; then
+      break
+    fi
+    info "Please choose a valid install mode."
+  done
+
+  set_env_value "MEMWARD_MODE" "$selected_mode" "$APP_DIR/.env"
+}
+
+prompt_database_choice() {
+  info "Choose database:"
+  PS3='Select database: '
+  select selected_db in "local" "supabase"; do
+    if [ -n "$selected_db" ]; then
+      break
+    fi
+    info "Please choose a valid database option."
+  done
+
+  if [ "$selected_db" = "local" ]; then
+    info "Using local SQLite database under ~/.memward/."
+    set_env_value "SUPABASE_DB_URL" "" "$APP_DIR/.env"
+  else
+    prompt_env_value "SUPABASE_DB_URL" "Enter your Supabase/Postgres connection string"
+  fi
+}
+
+cmd_init() {
+  if [ ! -f "$APP_DIR/.env" ]; then
+    info "Creating .env from .env.example..."
+    cp "$APP_DIR/.env.example" "$APP_DIR/.env"
+  else
+    info "Keeping existing .env file."
+  fi
+
+  prompt_mode
+  prompt_database_choice
+  prompt_env_value "LLM_API_KEY" "Enter your LLM API key" "true"
+
+  cat <<EOF
+
+[memward] Initialization complete.
+
+Next:
+  memward start
+
+EOF
+}
+
+cmd_start() {
+  if [ ! -f "$APP_DIR/.env" ]; then
+    fail "Missing $APP_DIR/.env. Run 'memward init' first."
+  fi
+
+  exec bash "$APP_DIR/start.sh"
+}
+
+cmd_help() {
+  cat <<EOF
+memward commands:
+  memward init     Initialize local configuration
+  memward start    Start the memward services
+EOF
+}
+
+case "${1:-help}" in
+  init)
+    cmd_init
+    ;;
+  start)
+    cmd_start
+    ;;
+  help|-h|--help)
+    cmd_help
+    ;;
+  *)
+    fail "Unknown command: $1"
+    ;;
+esac
