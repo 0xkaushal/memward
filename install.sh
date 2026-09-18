@@ -5,6 +5,7 @@ set -euo pipefail
 REPO_URL="${MEMWARD_REPO_URL:-https://github.com/0xkaushal/memward.git}"
 INSTALL_ROOT="${MEMWARD_INSTALL_ROOT:-$HOME/.memward}"
 APP_DIR="$INSTALL_ROOT/app"
+DATABASE_CHOICE=""
 
 info() {
   printf '[memward] %s\n' "$1"
@@ -81,6 +82,21 @@ prompt_mode() {
   set_env_value "MEMWARD_MODE" "$selected_mode" "$APP_DIR/.env"
 }
 
+prompt_database_choice() {
+  printf '[memward] Database choice [local]: '
+  IFS= read -r selected_db
+
+  if [ -z "$selected_db" ]; then
+    selected_db="local"
+  fi
+
+  if [ "$selected_db" != "local" ] && [ "$selected_db" != "supabase" ]; then
+    fail "Database choice must be 'local' or 'supabase'."
+  fi
+
+  DATABASE_CHOICE="$selected_db"
+}
+
 info "Checking required tools..."
 require_command git
 require_command uv
@@ -116,7 +132,16 @@ else
 fi
 
 prompt_mode
-prompt_env_value "SUPABASE_DB_URL" "Enter your Supabase/Postgres connection string"
+prompt_database_choice
+
+if [ "$DATABASE_CHOICE" = "supabase" ]; then
+  prompt_env_value "SUPABASE_DB_URL" "Enter your Supabase/Postgres connection string"
+else
+  info "Local database mode is not implemented yet."
+  info "Switching to the current hosted-database setup."
+  prompt_env_value "SUPABASE_DB_URL" "Enter your Supabase/Postgres connection string"
+fi
+
 prompt_env_value "LLM_API_KEY" "Enter your LLM API key" "true"
 
 cat <<EOF
@@ -135,7 +160,7 @@ Next steps:
    http://127.0.0.1:5173
 
 Note:
-- This installer matches the current Supabase-based setup.
-- The planned local-mode database under ~/.memward/ is not implemented yet.
+- The local database option is not implemented yet.
+- Right now both paths still require a Supabase or Postgres connection string.
 
 EOF
