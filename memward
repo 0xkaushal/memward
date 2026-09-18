@@ -14,6 +14,8 @@ resolve_script_dir() {
 }
 
 APP_DIR="${MEMWARD_APP_DIR:-$(resolve_script_dir "$0")}"
+CLAUDE_SETTINGS_DIR="$HOME/.claude"
+CLAUDE_SETTINGS_FILE="$CLAUDE_SETTINGS_DIR/settings.json"
 
 info() {
   printf '[memward] %s\n' "$1"
@@ -100,7 +102,78 @@ prompt_database_choice() {
   fi
 }
 
+prompt_agent_choice() {
+  info "Choose agent integration:"
+  PS3='Select agent: '
+  select selected_agent in "claude-code"; do
+    if [ -n "$selected_agent" ]; then
+      printf '%s\n' "$selected_agent"
+      return
+    fi
+    info "Please choose a valid agent option."
+  done
+}
+
+setup_claude_code() {
+  local stop_hook="$APP_DIR/connectors/claude_code/stop_hook.py"
+  local session_start_hook="$APP_DIR/connectors/claude_code/session_start_hook.py"
+  local prompt_hook="$APP_DIR/connectors/claude_code/prompt_hook.py"
+
+  chmod +x "$stop_hook" "$session_start_hook" "$prompt_hook"
+  mkdir -p "$CLAUDE_SETTINGS_DIR"
+
+  CLAUDE_SETTINGS_FILE="$CLAUDE_SETTINGS_FILE" \
+  MEMWARD_STOP_HOOK="$stop_hook" \
+  MEMWARD_SESSION_START_HOOK="$session_start_hook" \
+  MEMWARD_PROMPT_HOOK="$prompt_hook" \
+  python3 <<'PY'
+import json
+import os
+from pathlib import Path
+
+settings_path = Path(os.environ["CLAUDE_SETTINGS_FILE"])
+stop_hook = os.environ["MEMWARD_STOP_HOOK"]
+session_start_hook = os.environ["MEMWARD_SESSION_START_HOOK"]
+prompt_hook = os.environ["MEMWARD_PROMPT_HOOK"]
+
+if settings_path.exists():
+    try:
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        data = {}
+else:
+    data = {}
+
+hooks = data.setdefault("hooks", {})
+
+
+def ensure_command(hook_name: str, command: str, timeout: int | None = None) -> None:
+    entries = hooks.setdefault(hook_name, [])
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("type") == "command" and entry.get("command") == command:
+            if timeout is not None:
+                entry["timeout"] = timeout
+            return
+
+    payload = {"type": "command", "command": command}
+    if timeout is not None:
+        payload["timeout"] = timeout
+    entries.append(payload)
+
+
+ensure_command("Stop", stop_hook)
+ensure_command("SessionStart", session_start_hook)
+ensure_command("UserPromptSubmit", prompt_hook, timeout=5)
+
+settings_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+
+  info "Claude Code hooks installed in $CLAUDE_SETTINGS_FILE"
+}
+
 cmd_init() {
+  local agent_choice
+
   if [ ! -f "$APP_DIR/.env" ]; then
     info "Creating .env from .env.example..."
     cp "$APP_DIR/.env.example" "$APP_DIR/.env"
@@ -111,6 +184,11 @@ cmd_init() {
   prompt_mode
   prompt_database_choice
   prompt_env_value "LLM_API_KEY" "Enter your LLM API key" "true"
+  agent_choice="$(prompt_agent_choice)"
+
+  if [ "$agent_choice" = "claude-code" ]; then
+    setup_claude_code
+  fi
 
   cat <<EOF
 
