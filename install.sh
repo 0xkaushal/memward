@@ -51,7 +51,12 @@ npm --prefix "$APP_DIR/ui" install
 
 info "Installing memward CLI into $BIN_DIR"
 mkdir -p "$BIN_DIR"
-cp "$APP_DIR/memward" "$BIN_DIR/memward"
+cp "$APP_DIR/memward" "$APP_DIR/memward-cli"
+cat > "$BIN_DIR/memward" <<EOF
+#!/usr/bin/env bash
+export MEMWARD_APP_DIR="$APP_DIR"
+exec bash "$APP_DIR/memward-cli" "\$@"
+EOF
 chmod +x "$BIN_DIR/memward"
 
 cat <<EOF

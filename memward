@@ -13,7 +13,7 @@ resolve_script_dir() {
   cd "$(dirname "$source_path")" && pwd -P
 }
 
-APP_DIR="$(resolve_script_dir "$0")"
+APP_DIR="${MEMWARD_APP_DIR:-$(resolve_script_dir "$0")}"
 
 info() {
   printf '[memward] %s\n' "$1"
