@@ -20,7 +20,6 @@ Only approved memories ever feed into retrieval. Nothing leaks without your sign
 | [uv](https://docs.astral.sh/uv/getting-started/installation/) | latest | Python package manager |
 | Node.js | 18+ | For the curation UI |
 | npm | 9+ | Comes with Node |
-| [Supabase](https://supabase.com) account | — | Free tier is sufficient |
 | LLM API key | — | OpenRouter, Anthropic, or any OpenAI-compatible provider |
 
 ---
@@ -30,81 +29,105 @@ Only approved memories ever feed into retrieval. Nothing leaks without your sign
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/your-org/memward.git
+git clone https://github.com/0xkaushal/memward.git
 cd memward
 ```
 
-### 2. Install Python dependencies
+### 2. Run the installer
 
 ```bash
-uv sync
+bash install.sh
 ```
 
-### 3. Install UI dependencies
+This installs memward under `~/.memward/app` and installs the `memward` CLI
+under `~/.local/bin/memward`.
+
+If `memward` is not found after install, add this to your shell profile:
 
 ```bash
-cd ui && npm install && cd ..
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-### 4. Set up Supabase
+### 3. Initialize memward
+
+```bash
+memward init
+```
+
+During init, memward will:
+- ask for install mode
+- ask for database choice
+- ask for your `LLM_API_KEY`
+- ask which agent to connect
+- automatically install Claude Code hooks into `~/.claude/settings.json`
+
+For the simplest first run, choose:
+- install mode: `local`
+- database: `local`
+- agent: `claude-code`
+
+If you choose `supabase` as the database, memward will also ask for
+`SUPABASE_DB_URL`.
+
+### 4. Start memward
+
+```bash
+memward start
+```
+
+This starts:
+- core API on `http://127.0.0.1:8000`
+- processor API on `http://127.0.0.1:8010`
+
+The curation UI is available at:
+- `http://127.0.0.1:5173`
+
+---
+
+## Local mode
+
+Local mode is the default onboarding path for a single developer.
+
+It stores state under `~/.memward/`, including:
+- `~/.memward/memward.db` — local SQLite database
+- `~/.memward/checkpoints/` — Claude Code hook checkpoints
+- `~/.memward/logs/` — local logs
+
+Local mode uses:
+- SQLite for storage
+- keyword search for retrieval
+- the same `pending_review` -> `approved` memory flow
+
+You do not need Supabase for local mode.
+
+---
+
+## Hosted database option
+
+If you want a hosted Postgres path instead of local mode, choose `supabase`
+for the database during `memward init` and provide `SUPABASE_DB_URL`.
+
+You can get that from Supabase here:
 
 1. Go to [supabase.com](https://supabase.com) and create a new project
 2. Enable the pgvector extension: **Project Settings → Extensions → search "vector" → Enable**
-3. Get your credentials from **Settings → API**:
-   - Project URL → `SUPABASE_URL`
-   - Anon key → `SUPABASE_KEY`
-4. Get the database URL from **Settings → Database → Connection string → URI** → `SUPABASE_DB_URL`
-
-### 5. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and fill in at minimum:
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-anon-key
-SUPABASE_DB_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
-LLM_API_KEY=sk-...          # your LLM provider API key
-LLM_BASE_URL=https://openrouter.ai/api/v1   # or https://api.anthropic.com/v1
-LLM_CHAT_MODEL=openai/gpt-4o-mini
-LLM_EMBEDDING_MODEL=openai/text-embedding-3-small
-```
-
-AWS keys (`AWS_S3_BUCKET`, `AWS_SQS_QUEUE_URL`) are optional for local development.
+3. Get the database URL from **Settings -> Database -> Connection string -> URI** -> `SUPABASE_DB_URL`
 
 ---
 
 ## Running locally
 
-You need **three terminals** running simultaneously.
-
-### Terminal 1 — Core API (port 8000)
+For normal use:
 
 ```bash
-uv run uvicorn core.main:app --app-dir src --host 127.0.0.1 --port 8000 --reload
+memward start
 ```
 
-Handles ingestion, search, curation, and MCP tool endpoints.
-Auto-creates database tables on first start.
-
-### Terminal 2 — Processor (port 8010)
+For manual development without the CLI wrapper, you can still use:
 
 ```bash
-uv run uvicorn processor.main:app --app-dir src --host 127.0.0.1 --port 8010 --reload
+./start.sh
 ```
-
-Handles LLM categorization and embedding. Called automatically by the core API after each ingest.
-
-### Terminal 3 — Curation UI (port 5173)
-
-```bash
-cd ui && npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173) to review, approve, and manage memories.
 
 ---
 
@@ -114,7 +137,7 @@ Open [http://localhost:5173](http://localhost:5173) to review, approve, and mana
 # Ingest a test memory
 curl -X POST http://127.0.0.1:8000/ingest \
   -H 'content-type: application/json' \
-  -d '{"source":"copilot","content":"test memory — preferred language is Python"}'
+  -d '{"source":"claude_code","content":"test memory - preferred language is Python"}'
 # Should return 202 with a session_id
 
 # Search approved memories
@@ -136,7 +159,15 @@ See [docs/claude-desktop-setup.md](docs/claude-desktop-setup.md) for the registr
 
 ### Claude Code
 
-See [docs/claude-code-hooks.md](docs/claude-code-hooks.md) for hook installation instructions.
+If you selected `claude-code` during `memward init`, hook setup is already done automatically.
+
+You can verify it with:
+
+```bash
+cat ~/.claude/settings.json
+```
+
+For manual hook details, see [docs/claude-code-hooks.md](docs/claude-code-hooks.md).
 
 ---
 
@@ -171,7 +202,7 @@ memward/
 ## Tech stack
 
 - **Backend:** FastAPI + SQLAlchemy + psycopg2
-- **Database:** Supabase (Postgres + pgvector)
+- **Database:** SQLite in local mode, or Supabase/Postgres in hosted mode
 - **Embeddings/categorization:** Any OpenAI-compatible LLM provider
 - **UI:** React 19 + Vite
 - **Package manager:** uv (Python), npm (UI)
